@@ -77,7 +77,8 @@ def formatar_decimal(v: float) -> str:
 
 def _numero_entre(texto: str, minimo: int, maximo: int) -> bool:
     texto = texto.strip()
-    return texto.isdigit() and minimo <= int(texto) <= maximo
+    # isascii: "²" e outros dígitos especiais passam em isdigit() mas quebram int()
+    return texto.isascii() and texto.isdigit() and minimo <= int(texto) <= maximo
 
 
 def validar_dados(nome: str, idade: str, altura: str, peso: str):
@@ -119,5 +120,6 @@ def aproximar(atual: float, alvo: float, dt_ms: int, tau_ms: float = 130.0) -> f
 
 
 def aceita_clique(ms_desde_troca: int) -> bool:
-    """Ignora toques logo após trocar de tela (evita responder duas perguntas com um toque)."""
-    return ms_desde_troca >= 150
+    """Ignora toques logo após trocar de tela: um toque/clique duplo (até ~300 ms) não pode
+    responder a próxima pergunta nem apertar "Voltar ao início" no resultado."""
+    return ms_desde_troca >= 400

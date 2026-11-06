@@ -84,7 +84,7 @@ def test_clique_logo_apos_troca_e_ignorado():
     rects = passo(est, agora=T + 10)
     passo(est, clique=rects["opcao0"].center, agora=T + 50)
     assert est.indice == 0
-    passo(est, clique=rects["opcao0"].center, agora=T + 200)
+    passo(est, clique=rects["opcao0"].center, agora=T + 400)
     assert est.indice == 1
 
 
@@ -322,3 +322,59 @@ def test_inicio_pc_sem_arquivo_de_qr_nao_quebra(tmp_path, monkeypatch):
 
 def test_inicio_celular_nao_mostra_qr():
     assert "qr" not in passo(Estado(), **RET)
+
+
+# ------------------------------------------------------------ correções da revisão final
+def test_tecla_sobrescrito_e_ignorada():
+    est = Estado()
+    tocar(est, "primeira_vez")
+    est.campo = 1
+    passo(est, teclas=[tecla("²"), tecla("2")])
+    assert est.idade == "2"
+
+
+def _responder_tudo(est, kw):
+    while est.tela in ("quiz", "acomp"):
+        tocar(est, "opcao2", **kw)
+
+
+@pytest.mark.parametrize("retrato", [False, True])
+def test_toque_duplo_na_ultima_resposta_nao_apaga_resultado(retrato):
+    kw = RET if retrato else {}
+    est = Estado()
+    tocar(est, "primeira_vez", **kw)
+    preencher(est)
+    tocar(est, "continuar", **kw)
+    for _ in range(7):
+        tocar(est, "opcao2", **kw)
+    rects = passo(est, **kw)
+    T = Relogio.t + 1000
+    passo(est, clique=rects["opcao2"].center, agora=T, **kw)
+    assert est.tela == "resultado"
+    passo(est, clique=rects["opcao2"].center, agora=T + 200, **kw)     # segundo toque do "toque duplo"
+    assert est.tela == "resultado"
+
+
+def test_clique_duplo_em_continuar_nao_responde_a_pergunta_1():
+    est = Estado()
+    tocar(est, "primeira_vez")
+    preencher(est)
+    rects = passo(est)
+    T = Relogio.t + 1000
+    passo(est, clique=rects["continuar"].center, agora=T)
+    passo(est, clique=rects["continuar"].center, agora=T + 250)
+    assert est.tela == "quiz" and est.indice == 0
+
+
+def test_dados_pc_tem_voltar():
+    est = Estado()
+    tocar(est, "primeira_vez")
+    tocar(est, "voltar")
+    assert est.tela == "inicio"
+
+
+def test_dados_pc_esc_volta_ao_inicio():
+    est = Estado()
+    tocar(est, "ja_fiz")
+    passo(est, teclas=[tecla("\x1b", pygame.K_ESCAPE)])
+    assert est.tela == "inicio"

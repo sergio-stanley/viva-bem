@@ -83,4 +83,14 @@ def test_aproximar_chega_perto_em_400ms():
     assert v > 0.95
 
 def test_aceita_clique():
-    assert not aceita_clique(149) and aceita_clique(150)
+    assert not aceita_clique(399) and aceita_clique(400)
+
+
+@pytest.mark.parametrize("idade", ["²", "١٢", "2³"])
+def test_digitos_nao_ascii_nao_travam(idade):
+    # "²".isdigit() é True mas int("²") dá erro — AltGr+2 no teclado ABNT2 digita "²"
+    assert validar_dados("", idade, "170", "65") == "Informe sua idade (1 a 120 anos)"
+
+
+def test_aceita_clique_ignora_toque_duplo():
+    assert not aceita_clique(300) and aceita_clique(400)

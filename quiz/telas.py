@@ -182,15 +182,24 @@ def _dados(sup, lay, f, est, ent):
         lado = pygame.Rect(M, 400, col_w, 200)
     else:
         bc = pygame.Rect(M, lay.H - M - 64, 220, 64)
-        lado = pygame.Rect(M + col_w + 32, 170, lay.W - 2 * M - col_w - 32, 200)
+        lado = pygame.Rect(M + col_w + 32, 170, lay.W - 2 * M - col_w - 32, 224)
     ui.botao(sup, f["perg"], bc, "Continuar ›", ent.mouse, ativo=valido, primario=True)
+    if lay.retrato:
+        bvolta = pygame.Rect(M, bc.y - 84, col_w, 72)
+    else:
+        bvolta = pygame.Rect(bc.right + 16, bc.y, 160, bc.h)
+    ui.botao(sup, f["txt"], bvolta, "‹ Voltar", ent.mouse)
     ui.card(sup, lado)
     sup.blit(f["txt"].render("Por que pedimos isso?", True, ACC), (lado.x + 18, lado.y + 16))
     y = ui.desenhar_texto(sup, "Idade, altura e peso servem para calcular seu IMC. "
                           "O nome só personaliza o título.", f["peq"], INK, lado.x + 18, lado.y + 56, lado.w - 36)
-    sup.blit(f["peq"].render("Tab ou Enter: próximo campo", True, MUTE), (lado.x + 18, y + 14))
+    ui.desenhar_texto(sup, "Tab ou Enter: próximo campo · Esc: voltar", f["peq"], MUTE,
+                      lado.x + 18, y + 14, lado.w - 36, espaco=0)
 
     for ev in ent.teclas:
+        if ev.key == pygame.K_ESCAPE:
+            trocar(est, "inicio", ent.agora_ms)
+            return {}
         if _tecla_dados(est, ev) and valido:
             trocar(est, est.modo, ent.agora_ms)
             return {}
@@ -200,7 +209,9 @@ def _dados(sup, lay, f, est, ent):
                 est.campo = i
         if _clicou(ent, bc) and valido:
             trocar(est, est.modo, ent.agora_ms)
-    rects = {"continuar": bc}
+        elif _clicou(ent, bvolta):
+            trocar(est, "inicio", ent.agora_ms)
+    rects = {"continuar": bc, "voltar": bvolta}
     rects.update({f"campo{i}": c for i, c in enumerate(caixas)})
     return rects
 
@@ -245,7 +256,7 @@ def _tecla_dados(est, ev) -> bool:
     elif ev.unicode and ev.unicode.isprintable():
         if est.campo == 0 and len(valor) < LIMITE_NOME:
             setattr(est, attr, valor + ev.unicode)
-        elif est.campo > 0 and ev.unicode.isdigit() and len(valor) < 3:
+        elif est.campo > 0 and ev.unicode.isascii() and ev.unicode.isdigit() and len(valor) < 3:
             setattr(est, attr, valor + ev.unicode)
     return False
 

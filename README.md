@@ -78,4 +78,5 @@ Peça para a turma abrir o link uns minutos antes.
 - [ ] Link da Vercel no **Android** (pelo QR code): tela em pé, teclado numérico em idade/altura/peso
 - [ ] Link da Vercel no **iPhone** (pelo QR code): idem
 - [ ] No celular: "1,70" na altura mostra a mensagem amarela; "Voltar" e entrar de novo não duplica o formulário
+- [ ] No celular: tocar duas vezes rápido na última resposta **não** volta ao início (o resultado continua na tela)
 - [ ] Aviso de saúde visível no início e no resultado
