@@ -47,6 +47,7 @@ Trabalho-IOT-hábitos saudáveis/      → repositório GitHub "viva-bem"
 │   ├── regras.py         # lógica pura: IMC, faixas, pontuação, validação, data de retorno
 │   ├── ui.py             # fundo, cards, botões, ícones, campos, animações, layout
 │   ├── formulario_web.py # ponte com o navegador: formulário HTML no celular
+│   ├── boneco.py         # desenho e animação do boneco de energia (só PC)
 │   ├── assets/           # Nunito (Regular/Bold, licença OFL) + QR code (PNG)
 │   └── build/web/        # GERADO pelo pygbag e versionado; é o que a Vercel publica
 ├── testes/               # pytest para regras.py (fora de quiz/, não vai no pacote)
@@ -57,7 +58,7 @@ Trabalho-IOT-hábitos saudáveis/      → repositório GitHub "viva-bem"
 └── .gitignore            # .superpowers/, quiz/build/web-cache/, __pycache__/
 ```
 
-Dependências entre módulos: `main → ui, regras, conteudo, formulario_web`; `ui → (pygame)`;
+Dependências entre módulos: `main → ui, boneco, regras, conteudo, formulario_web`; `boneco → (pygame)`; `ui → (pygame)`;
 `regras` e `conteudo` não importam pygame (testáveis isoladamente).
 
 ## 4. Publicação (GitHub + Vercel)
@@ -102,10 +103,10 @@ e `retrato: bool`; cada tela calcula posições a partir dele.
   botão "Continuar ›" habilitado só com dados válidos, mensagem de validação em amarelo.
   **Sem teclado desenhado na tela.**
 - **Dados (celular):** formulário HTML sobreposto ao canvas (ver seção 6).
-- **Perguntas / acompanhamento:** barra de progresso, área + "Pergunta X de N", texto, 3 botões
+- **Perguntas / acompanhamento:** no modo PC, painel à direita com o **boneco de energia** (seção 7.1); barra de progresso, área + "Pergunta X de N", texto, 3 botões
   grandes empilhados (bons para o dedo).
 - **Resultado / feedback:** 4 cards de área (ícone, nome, rótulo da faixa, barra colorida,
-  orientação) — **empilhados** no celular, **grade 2×2** no PC; card do IMC (só no resultado);
+  orientação) — **empilhados** no celular, **grade 2×2** no PC (com o boneco no estado final ao lado); card do IMC (só no resultado);
   lembrete de retorno; aviso de saúde; "Voltar ao início".
 
 ## 6. Entrada de dados no celular (formulário HTML)
@@ -136,6 +137,24 @@ Se falhar → **reserva B:** `window.prompt()` por campo (teclado nativo garanti
   resultado enchem em ~0,6 s com brilho na cor da faixa.
 - Tela a 60 fps; `await asyncio.sleep(0)` a cada quadro (exigência do pygbag).
 
+### 7.1 Boneco de energia (sugestão do professor, adaptada) — só no modo PC
+
+Um personagem desenhado com formas (`pygame.draw`) que reflete a **energia/disposição** da pessoa
+conforme as respostas. **Não muda o peso/corpo** (decisão do grupo: evitar a mensagem
+"gordo = ruim" e porque sono/água não alteram peso).
+
+- **Energia** (0 a 1) = pontos acumulados ÷ pontos máximos das perguntas já respondidas;
+  começa em 0,5 (neutro) antes da primeira resposta. Função pura em `regras.py` (testada).
+- **Aparência interpolada continuamente pela energia:**
+  - baixa (≈0): corpo cinza, inclinado/curvado, braços caídos, olhos semicerrados com olheiras,
+    boca para baixo, "z z" flutuando;
+  - média (≈0,5): corpo amarelo, em pé, braços ao lado, boca neutra;
+  - alta (≈1): corpo verde, ereto, braços para cima, sorriso, brilho/aura e estrelinhas.
+- **Animação:** a energia exibida se aproxima do valor-alvo em ~0,4 s após cada resposta;
+  leve "respiração" (sobe e desce) contínua para parecer vivo.
+- **Onde aparece:** painel direito nas telas de perguntas e acompanhamento, e ao lado dos cards
+  no resultado/feedback (estado final). **Não aparece no modo celular.**
+
 ## 8. Conteúdo
 
 `conteudo.py` concentra perguntas, opções/pontos, orientações por faixa, dicas e textos de aviso.
@@ -151,6 +170,7 @@ Quando o grupo escolher os artigos de referência, as orientações serão revis
 - Faixa por área (0, 1–3, 4 pontos) e acompanhamento (0/1/2).
 - Validação: limites de idade/altura/peso, campos vazios, nome opcional.
 - Data de retorno (hoje + 2, formato DD/MM, virada de mês).
+- Energia do boneco: sem respostas → 0,5; todas 2 pontos → 1; todas 0 → 0; mistas → proporção.
 
 **Manuais (checklist no README):** `py main.py` no Windows; `localhost:8000` no Brave;
 link da Vercel no PC; link da Vercel em Android e iPhone (via QR code) — fluxo completo nos
@@ -162,6 +182,6 @@ dois modos, teclado do celular abrindo, layout em pé.
 |---|---|
 | 06–07/11 | Git/GitHub/Vercel com a versão atual no ar; protótipo do formulário no celular |
 | 08–10/11 | Divisão em módulos, layouts PC/celular, formulário HTML, regras + testes |
-| 11–13/11 | Identidade visual (fonte, ícones, animações, QR code) |
+| 11–13/11 | Identidade visual (fonte, ícones, animações, boneco de energia, QR code) |
 | 14–15/11 | Orientações baseadas nos artigos, testes finais em celulares do grupo |
 | 16/11 | Apresentação |
