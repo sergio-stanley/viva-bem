@@ -1,0 +1,5 @@
+.superpowers/
+__pycache__/
+*.pyc
+quiz/build/web-cache/
+quiz/build/version.txt
