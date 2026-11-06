@@ -149,3 +149,121 @@ def test_enter_no_ultimo_campo_nao_continua_se_invalido():
     est.campo = 3
     passo(est, teclas=[tecla("\r", pygame.K_RETURN)])
     assert est.tela == "dados"
+
+
+# ------------------------------------------------------------ modo celular (Task 6)
+class FormularioFalso:
+    """Mesma interface do FormularioWeb, sem navegador."""
+
+    def __init__(self):
+        self.chamadas = []
+        self.proxima_acao = None
+        self.dados = ("", "", "", "")
+
+    def abrir(self, erro=""):
+        self.chamadas.append("abrir")
+
+    def acao(self):
+        a, self.proxima_acao = self.proxima_acao, None
+        return a
+
+    def valores(self):
+        return self.dados
+
+    def mostrar_erro(self, msg):
+        self.chamadas.append(("erro", msg))
+
+    def fechar(self):
+        self.chamadas.append("fechar")
+
+
+LAY_R = Layout(540, 1080)
+F_R = carregar_fontes(LAY_R)
+FUNDO_R = criar_fundo(LAY_R)
+SUP_R = pygame.Surface((540, 1080))
+RET = dict(lay=LAY_R, fontes=F_R, fundo=FUNDO_R, sup=SUP_R)
+
+
+def test_dados_com_formulario_abre_uma_vez_e_continua():
+    form = FormularioFalso()
+    est = Estado()
+    tocar(est, "primeira_vez", form=form, **RET)
+    for _ in range(3):
+        passo(est, form=form, **RET)
+    assert form.chamadas.count("abrir") == 1
+    form.dados = (" Ana ", "23", "170", "65")
+    form.proxima_acao = "ok"
+    passo(est, form=form, **RET)
+    assert "fechar" in form.chamadas
+    assert est.tela == "quiz" and (est.nome, est.idade, est.altura, est.peso) == ("Ana", "23", "170", "65")
+
+
+def test_dados_com_formulario_invalido_mostra_erro():
+    form = FormularioFalso()
+    est = Estado()
+    tocar(est, "primeira_vez", form=form, **RET)
+    form.dados = ("", "23", "1,70", "65")
+    form.proxima_acao = "ok"
+    passo(est, form=form, **RET)
+    assert ("erro", "Altura em centímetros, entre 100 e 250 (ex.: 170)") in form.chamadas
+    assert est.tela == "dados" and "fechar" not in form.chamadas
+
+
+def test_dados_com_formulario_voltar():
+    form = FormularioFalso()
+    est = Estado()
+    tocar(est, "primeira_vez", form=form, **RET)
+    passo(est, form=form, **RET)
+    form.proxima_acao = "voltar"
+    passo(est, form=form, **RET)
+    assert est.tela == "inicio" and "fechar" in form.chamadas
+
+
+def test_formulario_reabre_ao_entrar_de_novo():
+    form = FormularioFalso()
+    est = Estado()
+    tocar(est, "primeira_vez", form=form, **RET)
+    passo(est, form=form, **RET)
+    form.proxima_acao = "voltar"
+    passo(est, form=form, **RET)
+    tocar(est, "ja_fiz", form=form, **RET)
+    passo(est, form=form, **RET)
+    assert form.chamadas.count("abrir") == 2
+
+
+def test_layout_retrato_sem_erro():
+    A = ["Sono", "Água", "Exercício", "Alimentação"]
+    for tela in ("inicio", "dados", "quiz", "acomp"):
+        passo(Estado(tela=tela), **RET)
+    for tela, n in (("resultado", 8), ("feedback", 4)):
+        est = Estado(tela=tela, modo="quiz" if n == 8 else "acomp", nome="W" * 20,
+                     idade="65", altura="100", peso="300", respostas=[(A[i % 4], 0) for i in range(n)])
+        rects = passo(est, **RET)
+        assert rects["voltar"].bottom <= 1080
+
+
+def test_fluxo_quiz_completo_retrato():
+    est = Estado()
+    tocar(est, "primeira_vez", **RET)
+    preencher(est)
+    tocar(est, "continuar", **RET)
+    for _ in range(8):
+        tocar(est, "opcao2", **RET)
+    assert est.tela == "resultado"
+
+
+def _pior_caso(tela):
+    A = ["Sono", "Água", "Exercício", "Alimentação"]
+    n = 8 if tela == "resultado" else 4
+    return Estado(tela=tela, modo="quiz" if n == 8 else "acomp", nome="Wanderleia Cristina",
+                  idade="65", altura="160", peso="80", respostas=[(A[i % 4], 0) for i in range(n)])
+
+
+@pytest.mark.parametrize("tela", ["resultado", "feedback"])
+@pytest.mark.parametrize("retrato", [False, True])
+def test_resultado_pior_caso_nao_sobrepoe_rodape(tela, retrato):
+    kw = RET if retrato else {}
+    rects = passo(_pior_caso(tela), **kw)
+    altura = (kw.get("lay") or LAY).H
+    assert rects["conteudo"].bottom <= rects["rodape"].top
+    assert rects["rodape"].bottom <= altura

@@ -88,7 +88,7 @@ O site no AWS Amplify pode ser mantido ou removido; não interfere.
 ## 5. Plataforma e layout
 
 **Detecção ao abrir** (no navegador, via `platform.window`):
-- Tela de toque (`matchMedia("(pointer: coarse)")`) → **modo celular**: sempre **em pé, 540×960**,
+- Tela de toque (`matchMedia("(pointer: coarse)")`) → **modo celular**: sempre **em pé, 540×1080** (proporção ~1:2 dos celulares atuais),
   mesmo se o aparelho estiver deitado (o pygbag apenas reduz a imagem).
 - Caso contrário → **modo PC**: **deitado, 960×600**.
 - Fora do navegador (`py main.py`) → modo PC.
