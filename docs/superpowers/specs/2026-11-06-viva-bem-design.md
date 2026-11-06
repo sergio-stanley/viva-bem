@@ -67,8 +67,8 @@ arquivos estáticos (sem build na nuvem). Motivo: o que é testado em `localhost
 o que vai ao ar; evita configurar Python/pygbag na Vercel.
 
 **Configuração única**
-1. Corrigir identidade do Git (`git config --global user.name` hoje está "Seu Nome").
-2. `git init`, primeiro commit, criar repositório `viva-bem` no site do GitHub, `git remote add origin` + `git push -u origin main`.
+1. ✅ Identidade do Git corrigida para "Sergio Stanley" e `git init` feito (06/11).
+2. Criar repositório `viva-bem` no site do GitHub, `git remote add origin` + `git push -u origin main`.
 3. Vercel: Add New → Project → importar `viva-bem`. `vercel.json` define framework nenhum,
    sem comando de build e `outputDirectory: "quiz/build/web"`.
 4. Obter o link `viva-bem.vercel.app` (ou similar) e gerar o QR code.
