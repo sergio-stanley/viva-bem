@@ -9,7 +9,8 @@ navegador com **pygbag**. Trabalho de extensão do curso de Análise e Desenvolv
 - **Nenhum dado é guardado.** As orientações são gerais e **não substituem a avaliação de um
   profissional de saúde**.
 
-**Link do site:** _(preencher depois do primeiro deploy na Vercel)_
+**Link do site:** <https://viva-bem-seven.vercel.app/>
+**Repositório:** <https://github.com/sergio-stanley/viva-bem>
 
 ## Estrutura
 
