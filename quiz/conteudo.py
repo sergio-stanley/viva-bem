@@ -66,6 +66,8 @@ FEEDBACK_ACOMP = {
     0: "Sem problema, recomece com um passo pequeno:",
 }
 
+SITE = "viva-bem-seven.vercel.app"     # endereço mostrado embaixo do QR code
+
 AVISO_SAUDE = "Orientações gerais não substituem a avaliação de um profissional de saúde."
 
 # Rótulo mostrado ao lado de cada área no resultado (índice = faixa 0, 1 ou 2).

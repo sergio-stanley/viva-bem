@@ -300,3 +300,25 @@ def test_energia_do_boneco_cai_com_respostas_ruins_e_volta_ao_neutro_no_inicio()
 def test_resultado_pc_reserva_coluna_do_boneco():
     rects = passo(_pior_caso("resultado"))
     assert rects["conteudo"].right <= LAY.W - LAY.margem - 190
+
+
+# ------------------------------------------------------------ QR code (Task 8)
+def test_inicio_pc_mostra_qr_quando_existe(tmp_path, monkeypatch):
+    import ui
+    qr = pygame.Surface((50, 50))
+    qr.fill((255, 255, 255))
+    pygame.image.save(qr, str(tmp_path / "qrcode.png"))
+    monkeypatch.setattr(ui, "PASTA_ASSETS", str(tmp_path))
+    rects = passo(Estado())
+    assert "qr" in rects and LAY.W // 2 < rects["qr"].centerx < LAY.W
+
+
+def test_inicio_pc_sem_arquivo_de_qr_nao_quebra(tmp_path, monkeypatch):
+    import ui
+    monkeypatch.setattr(ui, "PASTA_ASSETS", str(tmp_path))
+    rects = passo(Estado())
+    assert "qr" not in rects and "primeira_vez" in rects
+
+
+def test_inicio_celular_nao_mostra_qr():
+    assert "qr" not in passo(Estado(), **RET)

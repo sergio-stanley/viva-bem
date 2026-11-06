@@ -49,6 +49,14 @@ def carregar_fontes(lay: Layout) -> dict:
             "txt": _fonte("Nunito-Regular.ttf", t[2]), "peq": _fonte("Nunito-Regular.ttf", t[3])}
 
 
+def imagem(nome):
+    """Carrega uma imagem de assets/ (None se o arquivo não existir)."""
+    caminho = os.path.join(PASTA_ASSETS, nome)
+    if not os.path.exists(caminho):
+        return None
+    return pygame.image.load(caminho)
+
+
 def _mistura(a, b, t):
     return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
 

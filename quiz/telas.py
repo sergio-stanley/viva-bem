@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 import pygame
 
-from conteudo import AREAS, PERGUNTAS, ACOMPANHAMENTO, OPCOES_ACOMP, AVISO_SAUDE, ROTULO_FAIXA
+from conteudo import AREAS, PERGUNTAS, ACOMPANHAMENTO, OPCOES_ACOMP, AVISO_SAUDE, ROTULO_FAIXA, SITE
 from regras import (avaliar_area, pontos_por_area, calcular_imc, formatar_decimal, validar_dados,
                     titulo, data_retorno, aceita_clique, energia, aproximar, LIMITE_NOME)
 import ui
@@ -122,10 +122,28 @@ def _inicio(sup, lay, f, est, ent):
         ui.desenhar_texto(sup, aviso, f["peq"], MUTE, M, lay.H - M - 22, col_w)
         painel = pygame.Rect(lay.W - M - 240, 48, 240, lay.H - 48 - M)
         ui.card(sup, painel)
-        _painel_boneco(sup, f, pygame.Rect(painel.x, painel.y, painel.w, 330), est, ent, legenda=False)
-        for i, area in enumerate(AREAS):
-            cx = painel.x + 36 + i * 56
-            ui.icone(sup, area, (cx, painel.bottom - 60), 20, ACC)
+        qr = ui.imagem("qrcode.png")
+        if qr is not None:      # para o público escanear durante a apresentação
+            if qr.get_width() > painel.w - 40:        # só reduz se não couber (sem suavizar: QR nítido)
+                lado = painel.w - 40
+                qr = pygame.transform.scale(qr, (lado, lado))
+            r_qr = qr.get_rect(midtop=(painel.centerx, painel.y + 20))
+            sup.blit(qr, r_qr)
+            y = r_qr.bottom + 10
+            for linha in ui.quebrar("Aponte a câmera do celular", f["peq"], painel.w - 30):
+                img = f["peq"].render(linha, True, INK)
+                sup.blit(img, img.get_rect(midtop=(painel.centerx, y)))
+                y += f["peq"].get_linesize()
+            site = f["peq"].render(SITE, True, ACC)
+            sup.blit(site, site.get_rect(midtop=(painel.centerx, y + 2)))
+            _painel_boneco(sup, f, pygame.Rect(painel.x, y + 20, painel.w, painel.bottom - y - 20),
+                           est, ent, legenda=False)
+            extras = {"qr": r_qr}
+        else:
+            _painel_boneco(sup, f, pygame.Rect(painel.x, painel.y, painel.w, 330), est, ent, legenda=False)
+            for i, area in enumerate(AREAS):
+                ui.icone(sup, area, (painel.x + 36 + i * 56, painel.bottom - 60), 20, ACC)
+            extras = {}
     ui.botao(sup, fonte_bt, r1, "Primeira vez: começar o quiz", ent.mouse, primario=True)
     ui.botao(sup, fonte_bt, r2, "Já fiz antes: acompanhamento", ent.mouse)
     if _clicou(ent, r1):
@@ -134,7 +152,10 @@ def _inicio(sup, lay, f, est, ent):
     elif _clicou(ent, r2):
         est.modo = "acomp"
         trocar(est, "dados", ent.agora_ms)
-    return {"primeira_vez": r1, "ja_fiz": r2}
+    rects = {"primeira_vez": r1, "ja_fiz": r2}
+    if not lay.retrato:
+        rects.update(extras)
+    return rects
 
 
 # ---------------------------------------------------------------- dados (teclado físico)
