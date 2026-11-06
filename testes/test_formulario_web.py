@@ -43,3 +43,12 @@ def test_js_texto_escapa_aspas():
 def test_navegador_nao_valida_sozinho():
     # a validação é do Python (mensagem clara); o navegador mostraria "formato exigido" e bloquearia o envio
     assert "novalidate" in re.search(r"<form[^>]*>", html_formulario()).group(0)
+
+
+def test_formulario_segura_as_teclas_antes_do_sdl():
+    # o SDL (Pygame no navegador) escuta o teclado na página inteira e chama preventDefault:
+    # sem isto, o que a pessoa digita no celular nunca chega aos campos
+    js = js_abrir()
+    for evento in ("keydown", "keypress", "keyup"):
+        assert f"'{evento}'" in js
+    assert "stopPropagation" in js

@@ -74,7 +74,11 @@ def html_formulario(erro: str = "") -> str:
 def js_abrir(erro: str = "") -> str:
     return ("(function(){var v=document.getElementById('vb-form'); if(v) v.remove();"
             "window.vb_acao='';var d=document.createElement('div');d.id='vb-form';"
-            f"d.innerHTML={js_texto(html_formulario(erro))};document.body.appendChild(d);}})();")
+            f"d.innerHTML={js_texto(html_formulario(erro))};"
+            # o SDL escuta o teclado na página toda e "cancela" as teclas: seguramos aqui antes
+            "['keydown','keypress','keyup'].forEach(function(t){"
+            "d.addEventListener(t,function(e){e.stopPropagation();},false);});"
+            "document.body.appendChild(d);})();")
 
 
 _JS_FECHAR = ("(function(){var a=document.activeElement; if(a&&a.blur) a.blur();"
