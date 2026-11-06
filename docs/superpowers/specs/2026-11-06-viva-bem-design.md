@@ -42,7 +42,8 @@ IA externa, build automático na nuvem.
 ```
 Trabalho-IOT-hábitos saudáveis/      → repositório GitHub "viva-bem"
 ├── quiz/                 # SÓ o que vai empacotado no jogo (pygbag empacota a pasta inteira)
-│   ├── main.py           # laço async, máquina de estados, desenho das telas
+│   ├── main.py           # só o laço async (pygbag executa este arquivo)
+│   ├── telas.py          # estado do quiz + desenho/entrada de cada tela
 │   ├── conteudo.py       # PERGUNTAS, ORIENTACOES, DICAS, ACOMPANHAMENTO, textos (o grupo edita)
 │   ├── regras.py         # lógica pura: IMC, faixas, pontuação, validação, data de retorno
 │   ├── ui.py             # fundo, cards, botões, ícones, campos, animações, layout
@@ -58,7 +59,7 @@ Trabalho-IOT-hábitos saudáveis/      → repositório GitHub "viva-bem"
 └── .gitignore            # .superpowers/, quiz/build/web-cache/, __pycache__/
 ```
 
-Dependências entre módulos: `main → ui, boneco, regras, conteudo, formulario_web`; `boneco → (pygame)`; `ui → (pygame)`;
+Dependências entre módulos: `main → telas`; `telas → ui, boneco, regras, conteudo, formulario_web`; `boneco → (pygame)`; `ui → (pygame)`;
 `regras` e `conteudo` não importam pygame (testáveis isoladamente).
 
 ## 4. Publicação (GitHub + Vercel)
@@ -167,7 +168,7 @@ Quando o grupo escolher os artigos de referência, as orientações serão revis
 - IMC adulto: 18,4 → abaixo; 18,5 e 24,9 → adequado; 25 → sobrepeso; 30 → obesidade.
 - IMC 60+: 21,9 → baixo peso; 22 e 27 → adequado; 27,1 → sobrepeso.
 - IMC < 18: sem classificação, com aviso.
-- Faixa por área (0, 1–3, 4 pontos) e acompanhamento (0/1/2).
+- Faixa por área, mantendo a regra atual do main.py: 0–1 ponto → 0 (precisa melhorar), 2–3 → 1 (bom começo), 4 → 2 (ótimo); acompanhamento usa os pontos direto (0/1/2).
 - Validação: limites de idade/altura/peso, campos vazios, nome opcional.
 - Data de retorno (hoje + 2, formato DD/MM, virada de mês).
 - Energia do boneco: sem respostas → 0,5; todas 2 pontos → 1; todas 0 → 0; mistas → proporção.
