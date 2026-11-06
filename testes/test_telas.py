@@ -267,3 +267,36 @@ def test_resultado_pior_caso_nao_sobrepoe_rodape(tela, retrato):
     altura = (kw.get("lay") or LAY).H
     assert rects["conteudo"].bottom <= rects["rodape"].top
     assert rects["rodape"].bottom <= altura
+
+
+# ------------------------------------------------------------ boneco de energia (Task 7)
+def test_energia_do_boneco_sobe_com_respostas_boas():
+    est = Estado()
+    tocar(est, "primeira_vez")
+    preencher(est)
+    tocar(est, "continuar")
+    assert est.energia_vista == pytest.approx(0.5)
+    for _ in range(3):
+        tocar(est, "opcao0")          # 2 pontos cada
+    for _ in range(30):
+        passo(est)
+    assert est.energia_vista > 0.9
+
+
+def test_energia_do_boneco_cai_com_respostas_ruins_e_volta_ao_neutro_no_inicio():
+    est = Estado()
+    tocar(est, "ja_fiz")
+    preencher(est)
+    tocar(est, "continuar")
+    for _ in range(4):
+        tocar(est, "opcao2")          # 0 pontos cada
+    for _ in range(30):
+        passo(est)
+    assert est.tela == "feedback" and est.energia_vista < 0.1
+    tocar(est, "voltar")
+    assert est.energia_vista == pytest.approx(0.5)
+
+
+def test_resultado_pc_reserva_coluna_do_boneco():
+    rects = passo(_pior_caso("resultado"))
+    assert rects["conteudo"].right <= LAY.W - LAY.margem - 190

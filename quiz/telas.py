@@ -6,8 +6,9 @@ import pygame
 
 from conteudo import AREAS, PERGUNTAS, ACOMPANHAMENTO, OPCOES_ACOMP, AVISO_SAUDE, ROTULO_FAIXA
 from regras import (avaliar_area, pontos_por_area, calcular_imc, formatar_decimal, validar_dados,
-                    titulo, data_retorno, aceita_clique, LIMITE_NOME)
+                    titulo, data_retorno, aceita_clique, energia, aproximar, LIMITE_NOME)
 import ui
+from boneco import desenhar_boneco
 from ui import ACC, INK, MUTE, WARN, BG, COR_FAIXA, COR_NIVEL
 
 
@@ -31,7 +32,8 @@ class Estado:
     peso: str = ""
     campo: int = 0
     ms_troca: int = 0
-    energia_vista: float = 0.5
+    energia_vista: float = 0.5      # energia mostrada pelo boneco (anda suavemente até o alvo)
+    ms_ultimo: int = 0              # instante do quadro anterior (para animar)
     form_aberto: bool = False
     hoje: datetime.date = field(default_factory=datetime.date.today)
 
@@ -42,6 +44,8 @@ def trocar(est: Estado, tela: str, agora_ms: int):
         est.campo = 0
     if tela in ("quiz", "acomp"):
         est.indice, est.respostas = 0, []
+    if tela == "inicio":
+        est.energia_vista = 0.5
     est.tela, est.ms_troca = tela, agora_ms
     est.form_aberto = False
 
@@ -49,6 +53,10 @@ def trocar(est: Estado, tela: str, agora_ms: int):
 def desenhar(sup, lay, fontes, fundo, est: Estado, ent: Entrada, form=None) -> dict:
     """Desenha a tela atual e trata a entrada. `form`: FormularioWeb no celular (ou None no PC)."""
     sup.blit(fundo, (0, 0))
+    dt = max(0, min(100, ent.agora_ms - est.ms_ultimo))
+    est.ms_ultimo = ent.agora_ms
+    alvo = energia(est.respostas) if est.tela in ("quiz", "acomp", "resultado", "feedback") else 0.5
+    est.energia_vista = aproximar(est.energia_vista, alvo, dt)
     clique = ent.clique if aceita_clique(ent.agora_ms - est.ms_troca) else None
     ent = Entrada(ent.mouse, clique, ent.teclas, ent.agora_ms)
     if est.tela == "dados" and form is not None:
@@ -63,6 +71,25 @@ def desenhar(sup, lay, fontes, fundo, est: Estado, ent: Entrada, form=None) -> d
 
 def _clicou(ent, rect):
     return ent.clique is not None and rect.collidepoint(ent.clique)
+
+
+def _rotulo_energia(e):
+    if e < 0.35:
+        return "Sem energia", ui.BAD
+    if e < 0.7:
+        return "Energia ok", WARN
+    return "Cheio de energia!", ui.OK
+
+
+def _painel_boneco(sup, f, painel, est, ent, legenda=True):
+    """Boneco de energia centralizado num painel (só no PC)."""
+    altura = min(300, painel.h - 90)
+    centro = (painel.centerx, painel.y + 30 + altura // 2)
+    desenhar_boneco(sup, centro, altura, est.energia_vista, ent.agora_ms)
+    if legenda:
+        texto, cor = _rotulo_energia(est.energia_vista)
+        img = f["txt"].render(texto, True, cor)
+        sup.blit(img, img.get_rect(midtop=(painel.centerx, centro[1] + altura // 2 + 12)))
 
 
 # ---------------------------------------------------------------- início
@@ -95,12 +122,10 @@ def _inicio(sup, lay, f, est, ent):
         ui.desenhar_texto(sup, aviso, f["peq"], MUTE, M, lay.H - M - 22, col_w)
         painel = pygame.Rect(lay.W - M - 240, 48, 240, lay.H - 48 - M)
         ui.card(sup, painel)
+        _painel_boneco(sup, f, pygame.Rect(painel.x, painel.y, painel.w, 330), est, ent, legenda=False)
         for i, area in enumerate(AREAS):
-            cx = painel.x + 66 + (i % 2) * 108
-            cy = painel.y + 120 + (i // 2) * 130
-            ui.icone(sup, area, (cx, cy), 34, ACC)
-            img = f["peq"].render(area, True, INK)
-            sup.blit(img, img.get_rect(midtop=(cx, cy + 42)))
+            cx = painel.x + 36 + i * 56
+            ui.icone(sup, area, (cx, painel.bottom - 60), 20, ACC)
     ui.botao(sup, fonte_bt, r1, "Primeira vez: começar o quiz", ent.mouse, primario=True)
     ui.botao(sup, fonte_bt, r2, "Já fiz antes: acompanhamento", ent.mouse)
     if _clicou(ent, r1):
@@ -237,6 +262,7 @@ def _perguntas(sup, lay, f, est, ent):
     if not lay.retrato:
         painel = pygame.Rect(M + col_w + 32, 40, lay.W - 2 * M - col_w - 32, lay.H - 40 - M)
         ui.card(sup, painel)
+        _painel_boneco(sup, f, painel.inflate(0, -40), est, ent)
     return rects
 
 
@@ -304,6 +330,9 @@ def _resultado(sup, lay, f, est, ent):
         ui.desenhar_texto(sup, obs, f["peq"], INK, r.x + 16, r.y + 36, grade_w - 32, espaco=0)
         y = r.bottom
     conteudo = pygame.Rect(M, 0, grade_w, y)
+    if not lay.retrato:
+        coluna = pygame.Rect(M + grade_w + 16, 70, lay.W - M - (M + grade_w + 16), 380)
+        _painel_boneco(sup, f, coluna, est, ent)
 
     # rodapé fixo: lembrete de retorno + aviso de saúde + botão
     retorno = f"Volte dia {data_retorno(est.hoje)} para o acompanhamento."
