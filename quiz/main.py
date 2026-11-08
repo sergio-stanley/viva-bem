@@ -14,6 +14,9 @@ if NO_NAVEGADOR:
 
 TAMANHO_PC = (960, 600)          # deitado: computador / projetor
 TAMANHO_CELULAR = (540, 1080)    # em pé: celular (sempre, mesmo se girar)
+# Desenha no dobro do tamanho: o navegador não precisa esticar a imagem, então o texto fica nítido
+# no celular (telas de alta densidade) e em monitores Full HD.
+ESCALA = 2
 
 
 def ajustar_proporcao():
@@ -26,7 +29,8 @@ def ajustar_proporcao():
 async def main():
     pygame.init()
     celular = eh_toque()
-    lay = Layout(*(TAMANHO_CELULAR if celular else TAMANHO_PC))
+    base_w, base_h = TAMANHO_CELULAR if celular else TAMANHO_PC
+    lay = Layout(base_w * ESCALA, base_h * ESCALA, ESCALA)
     form = FormularioWeb() if celular else None
     sup = pygame.display.set_mode((lay.W, lay.H))
     pygame.display.set_caption("Viva Bem")

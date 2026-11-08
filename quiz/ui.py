@@ -23,8 +23,16 @@ PASTA_ASSETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets"
 
 @dataclass
 class Layout:
+    """Tamanho real da tela em pixels. `k` é a escala: as medidas do desenho foram pensadas para
+    960x600 (PC) e 540x1080 (celular); com k=2 tudo é desenhado no dobro, para ficar nítido em telas
+    de alta densidade (celular, monitor Full HD) em vez de o navegador esticar uma imagem pequena."""
     W: int
     H: int
+    k: float = 1
+
+    def s(self, n) -> int:
+        """Converte uma medida do desenho base para pixels reais."""
+        return int(round(n * self.k))
 
     @property
     def retrato(self) -> bool:
@@ -32,7 +40,7 @@ class Layout:
 
     @property
     def margem(self) -> int:
-        return 28 if self.retrato else 40
+        return self.s(28 if self.retrato else 40)
 
 
 def _fonte(arquivo, tamanho):
@@ -45,6 +53,7 @@ def _fonte(arquivo, tamanho):
 
 def carregar_fontes(lay: Layout) -> dict:
     t = (46, 32, 26, 20) if lay.retrato else (40, 28, 22, 17)
+    t = [lay.s(x) for x in t]
     return {"tit": _fonte("Nunito-ExtraBold.ttf", t[0]), "perg": _fonte("Nunito-ExtraBold.ttf", t[1]),
             "txt": _fonte("Nunito-Regular.ttf", t[2]), "peq": _fonte("Nunito-Regular.ttf", t[3])}
 
@@ -95,22 +104,26 @@ def desenhar_texto(sup, texto, fonte, cor, x, y, largura, espaco=4):
     return y
 
 
-def card(sup, rect, borda=LINE):
-    pygame.draw.rect(sup, CARD, rect, border_radius=16)
-    pygame.draw.rect(sup, borda, rect, 1, border_radius=16)
+def _px(n, k):
+    return max(1, int(round(n * k)))
 
 
-def botao(sup, fonte, rect, texto, mouse, ativo=True, primario=False):
+def card(sup, rect, borda=LINE, k=1):
+    pygame.draw.rect(sup, CARD, rect, border_radius=_px(16, k))
+    pygame.draw.rect(sup, borda, rect, _px(1, k), border_radius=_px(16, k))
+
+
+def botao(sup, fonte, rect, texto, mouse, ativo=True, primario=False, k=1):
     rect = pygame.Rect(rect)
     sobre = ativo and rect.collidepoint(mouse)
     camada = pygame.Surface(rect.size, pygame.SRCALPHA)
     local = camada.get_rect()
     if primario:
-        pygame.draw.rect(camada, _mistura(ACC, INK, 0.25) if sobre else ACC, local, border_radius=14)
+        pygame.draw.rect(camada, _mistura(ACC, INK, 0.25) if sobre else ACC, local, border_radius=_px(14, k))
         cor_txt = BG
     else:
-        pygame.draw.rect(camada, HOVER if sobre else CARD, local, border_radius=14)
-        pygame.draw.rect(camada, ACC if sobre else LINE, local, 2, border_radius=14)
+        pygame.draw.rect(camada, HOVER if sobre else CARD, local, border_radius=_px(14, k))
+        pygame.draw.rect(camada, ACC if sobre else LINE, local, _px(2, k), border_radius=_px(14, k))
         cor_txt = INK
     img = fonte.render(texto, True, cor_txt)
     camada.blit(img, img.get_rect(center=local.center))
@@ -119,20 +132,21 @@ def botao(sup, fonte, rect, texto, mouse, ativo=True, primario=False):
     sup.blit(camada, rect)
 
 
-def campo(sup, fontes, rect, rotulo, valor, unidade, focado):
+def campo(sup, fontes, rect, rotulo, valor, unidade, focado, k=1):
     rect = pygame.Rect(rect)
-    sup.blit(fontes["peq"].render(rotulo, True, MUTE), (rect.x + 2, rect.y - fontes["peq"].get_linesize() - 4))
-    pygame.draw.rect(sup, BG, rect, border_radius=12)
-    pygame.draw.rect(sup, ACC if focado else LINE, rect, 2, border_radius=12)
+    sup.blit(fontes["peq"].render(rotulo, True, MUTE),
+             (rect.x + _px(2, k), rect.y - fontes["peq"].get_linesize() - _px(4, k)))
+    pygame.draw.rect(sup, BG, rect, border_radius=_px(12, k))
+    pygame.draw.rect(sup, ACC if focado else LINE, rect, _px(2, k), border_radius=_px(12, k))
     cursor = "|" if focado and (pygame.time.get_ticks() // 500) % 2 == 0 else ""
     img = fontes["txt"].render(valor + cursor, True, INK)
-    sup.blit(img, img.get_rect(midleft=(rect.x + 14, rect.centery)))
+    sup.blit(img, img.get_rect(midleft=(rect.x + _px(14, k), rect.centery)))
     if unidade:
         u = fontes["peq"].render(unidade, True, MUTE)
-        sup.blit(u, u.get_rect(midright=(rect.right - 12, rect.centery)))
+        sup.blit(u, u.get_rect(midright=(rect.right - _px(12, k), rect.centery)))
 
 
-def barra(sup, rect, fracao, cor):
+def barra(sup, rect, fracao, cor, k=1):
     rect = pygame.Rect(rect)
     fracao = max(0.0, min(1.0, fracao))
     raio = rect.h // 2
@@ -140,15 +154,16 @@ def barra(sup, rect, fracao, cor):
     if fracao <= 0:
         return
     cheio = pygame.Rect(rect.x, rect.y, max(rect.h, int(rect.w * fracao)), rect.h)
-    brilho = pygame.Surface((cheio.w + 16, cheio.h + 16), pygame.SRCALPHA)
-    for i, alfa in ((8, 30), (4, 55)):
-        pygame.draw.rect(brilho, cor + (alfa,), (8 - i, 8 - i, cheio.w + 2 * i, cheio.h + 2 * i),
+    g = _px(8, k)
+    brilho = pygame.Surface((cheio.w + 2 * g, cheio.h + 2 * g), pygame.SRCALPHA)
+    for i, alfa in ((g, 30), (_px(4, k), 55)):
+        pygame.draw.rect(brilho, cor + (alfa,), (g - i, g - i, cheio.w + 2 * i, cheio.h + 2 * i),
                          border_radius=raio + i)
-    sup.blit(brilho, (cheio.x - 8, cheio.y - 8))
+    sup.blit(brilho, (cheio.x - g, cheio.y - g))
     pygame.draw.rect(sup, cor, cheio, border_radius=raio)
 
 
-def icone(sup, area, centro, r, cor):
+def icone(sup, area, centro, r, cor, k=1):
     """Ícones simples desenhados com formas: lua, gota, halter e maçã."""
     x, y = centro
     pygame.draw.circle(sup, HOVER, centro, r)
@@ -164,11 +179,11 @@ def icone(sup, area, centro, r, cor):
         pygame.draw.rect(sup, cor, (int(x - s), int(y - s * 0.12), int(2 * s), max(2, int(s * 0.24))))
         for lado in (-1, 1):
             pygame.draw.rect(sup, cor, (int(x + lado * s * 0.8 - s * 0.2), int(y - s * 0.55),
-                                        int(s * 0.4), int(s * 1.1)), border_radius=3)
+                                        int(s * 0.4), int(s * 1.1)), border_radius=_px(3, k))
     else:  # Alimentação
         pygame.draw.ellipse(sup, cor, (int(x - s * 0.8), int(y - s * 0.5), int(s * 1.6), int(s * 1.45)))
         pygame.draw.circle(sup, HOVER, (x, int(y - s * 0.5)), max(1, int(s * 0.18)))
-        pygame.draw.line(sup, cor, (x, int(y - s * 0.45)), (int(x + s * 0.15), int(y - s * 0.95)), 2)
+        pygame.draw.line(sup, cor, (x, int(y - s * 0.45)), (int(x + s * 0.15), int(y - s * 0.95)), _px(2, k))
         pygame.draw.ellipse(sup, OK, (int(x + s * 0.2), int(y - s * 1.05), int(s * 0.6), int(s * 0.3)))
 
 

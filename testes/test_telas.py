@@ -378,3 +378,68 @@ def test_dados_pc_esc_volta_ao_inicio():
     tocar(est, "ja_fiz")
     passo(est, teclas=[tecla("\x1b", pygame.K_ESCAPE)])
     assert est.tela == "inicio"
+
+
+# ------------------------------------------------------------ escala 2x (nitidez em telas de alta densidade)
+LAY_2 = Layout(1920, 1200, 2)
+PC2 = dict(lay=LAY_2, fontes=carregar_fontes(LAY_2), fundo=criar_fundo(LAY_2), sup=pygame.Surface((1920, 1200)))
+LAY_R2 = Layout(1080, 2160, 2)
+RET2 = dict(lay=LAY_R2, fontes=carregar_fontes(LAY_R2), fundo=criar_fundo(LAY_R2), sup=pygame.Surface((1080, 2160)))
+
+
+def _estados_para_comparar():
+    A = ["Sono", "Água", "Exercício", "Alimentação"]
+    resp = [(A[i % 4], i % 3) for i in range(8)]
+    return [Estado(), Estado(tela="dados", idade="23", altura="170", peso="65"),
+            Estado(tela="quiz", indice=3, respostas=resp[:3]), Estado(tela="acomp", indice=1),
+            Estado(tela="resultado", nome="Ana", idade="23", altura="165", peso="60", respostas=resp),
+            Estado(tela="feedback", modo="acomp", idade="23", altura="165", peso="60", respostas=resp[:4])]
+
+
+@pytest.mark.parametrize("retrato", [False, True])
+def test_escala_2x_desenha_a_mesma_tela_no_dobro_do_tamanho(retrato):
+    """Com escala 2, cada botão/área fica no mesmo lugar, só que com o dobro de pixels (mais nítido)."""
+    kw1, kw2 = (RET, RET2) if retrato else ({}, PC2)
+    for est in _estados_para_comparar():
+        r1 = passo(Estado(**{k: getattr(est, k) for k in ("tela", "modo", "indice", "nome", "idade", "altura", "peso")},
+                          respostas=list(est.respostas)), **kw1)
+        r2 = passo(est, **kw2)
+        assert r1.keys() == r2.keys(), est.tela
+        for nome in r1:
+            a, b = r1[nome], r2[nome]
+            for v1, v2 in ((a.x, b.x), (a.y, b.y), (a.w, b.w), (a.h, b.h)):
+                assert abs(2 * v1 - v2) <= 12, (est.tela, nome, a, b)
+
+
+@pytest.mark.parametrize("tela", ["resultado", "feedback"])
+@pytest.mark.parametrize("retrato", [False, True])
+def test_escala_2x_pior_caso_nao_sobrepoe_rodape(tela, retrato):
+    kw = RET2 if retrato else PC2
+    rects = passo(_pior_caso(tela), **kw)
+    assert rects["conteudo"].bottom <= rects["rodape"].top
+    assert rects["rodape"].bottom <= kw["lay"].H
+
+
+def test_escala_2x_fluxo_completo_no_celular():
+    est = Estado()
+    tocar(est, "primeira_vez", **RET2)
+    preencher(est)
+    tocar(est, "continuar", **RET2)
+    for _ in range(8):
+        tocar(est, "opcao1", **RET2)
+    assert est.tela == "resultado"
+
+
+def test_escala_2x_qr_fica_maior_e_nitido(tmp_path, monkeypatch):
+    import ui
+    qr = pygame.Surface((50, 50))
+    qr.fill((255, 255, 255))
+    qr.fill((0, 0, 0), pygame.Rect(0, 0, 25, 50))
+    pygame.image.save(qr, str(tmp_path / "qrcode.png"))
+    monkeypatch.setattr(ui, "PASTA_ASSETS", str(tmp_path))
+    r1 = passo(Estado())["qr"]
+    est = Estado()
+    r2 = passo(est, **PC2)["qr"]
+    assert r2.w == 2 * r1.w
+    cores = {tuple(PC2["sup"].get_at((x, r2.centery)))[:3] for x in range(r2.x, r2.right)}
+    assert cores <= {(0, 0, 0), (255, 255, 255)}      # ampliado sem suavizar: só preto e branco

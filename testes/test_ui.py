@@ -72,3 +72,29 @@ def test_botao_inativo_mais_apagado():
     botao(a, f["txt"], r, "X", (-1, -1), primario=True)
     botao(b, f["txt"], r, "X", (-1, -1), primario=True, ativo=False)
     assert sum(a.get_at((150, 10))[:3]) > sum(b.get_at((150, 10))[:3])
+
+
+# ------------------------------------------------------------ escala (nitidez em telas de alta densidade)
+def test_layout_com_escala_dobra_margem_e_medidas():
+    lay = Layout(1920, 1200, 2)
+    assert lay.k == 2 and lay.s(28) == 56 and lay.margem == 80
+    assert Layout(1080, 2160, 2).margem == 56
+    assert Layout(960, 600).k == 1 and Layout(960, 600).s(28) == 28
+
+
+def test_fontes_acompanham_a_escala():
+    base = carregar_fontes(Layout(960, 600))["txt"].get_height()
+    dobro = carregar_fontes(Layout(1920, 1200, 2))["txt"].get_height()
+    assert 1.8 * base <= dobro <= 2.2 * base
+
+
+def test_pecas_desenham_com_escala():
+    lay = Layout(1920, 1200, 2)
+    f = carregar_fontes(lay)
+    sup = pygame.Surface((1920, 1200))
+    r = pygame.Rect(80, 80, 600, 120)
+    card(sup, r, k=2)
+    botao(sup, f["txt"], r, "Continuar ›", (90, 90), k=2)
+    campo(sup, f, r, "Altura", "170", "cm", True, k=2)
+    barra(sup, pygame.Rect(80, 400, 400, 24), 0.5, OK, k=2)
+    icone(sup, "Exercício", (200, 600), 36, ACC, k=2)
