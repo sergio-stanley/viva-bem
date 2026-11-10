@@ -168,8 +168,8 @@ def botao(sup, fonte, rect, texto, mouse, ativo=True, cor=TINTA, cor_texto=BRANC
     """Botão pílula de cor chapada. Ao passar o mouse, troca fundo e texto.
     `cor` com 4 valores (RGBA) = pílula translúcida (a camada é feita uma vez por tamanho e guardada)."""
     rect = pygame.Rect(rect)
-    if ativo and rect.collidepoint(mouse):
-        cor, cor_texto = BRANCO, (cor[:3] if len(cor) == 3 else TINTA)
+    if ativo and rect.collidepoint(mouse):      # mouse em cima: inverte (botão branco fica escuro)
+        cor, cor_texto = (TINTA, BRANCO) if tuple(cor) == BRANCO else (BRANCO, cor[:3] if len(cor) == 3 else TINTA)
     if not ativo:       # sem camada transparente: só lava as cores na direção do fundo claro
         cor, cor_texto = mistura(cor, CLARO, 0.6), mistura(cor_texto, CLARO, 0.6)
     if len(cor) == 4:

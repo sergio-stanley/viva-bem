@@ -157,3 +157,12 @@ def test_fundo_padrao_e_o_degrade_das_cores_de_belem():
     for x in range(0, 960, 40):
         for y in range(0, 600, 40):
             assert 1.05 / (_lum(s.get_at((x, y))[:3]) + 0.05) >= 4.5, (x, y)    # texto branco legível
+
+
+@pytest.mark.parametrize("cor,cor_texto", [(BRANCO, TINTA), (TINTA, BRANCO), (AGUA, BRANCO), ((255, 255, 255, 46), BRANCO)])
+def test_texto_continua_visivel_com_o_mouse_em_cima(cor, cor_texto):
+    f = carregar_fontes(Layout(960, 600))
+    sup = pygame.Surface((300, 80)); sup.fill(AGUA)
+    botao(sup, f["perg"], (0, 0, 300, 80), "MMMM", (150, 40), cor=cor, cor_texto=cor_texto)
+    cores = {sup.get_at((x, 40))[:3] for x in range(100, 200)}
+    assert len(cores) >= 2, cores          # fundo e letras de cores diferentes
