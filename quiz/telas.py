@@ -15,6 +15,8 @@ import ui
 from boneco import desenhar_boneco
 from ui import BRANCO, TINTA, CLARO, AGUA, COR_AREA, COR_FAIXA, COR_NIVEL
 
+FONTE_FAIXAS_USADA = None   # fonte das orientações no último resultado do PC
+
 
 @dataclass
 class Entrada:
@@ -99,8 +101,8 @@ def _painel_boneco(sup, lay, f, painel, est, ent, legenda=True, cor_txt=BRANCO):
 
 def _selo(sup, f, texto, cor, pos, lay, ancora="midright"):
     """Selo sólido com a avaliação (semáforo). Devolve o retângulo."""
-    img = f["peq"].render(texto, True, TINTA)
-    r = img.get_rect().inflate(lay.s(24), lay.s(10))
+    img = f["txt"].render(texto, True, TINTA)
+    r = img.get_rect().inflate(lay.s(24), lay.s(8))
     setattr(r, ancora, pos)
     pygame.draw.rect(sup, cor, r, border_radius=r.h // 2)
     sup.blit(img, img.get_rect(center=r.center))
@@ -330,22 +332,23 @@ def _perguntas(sup, lay, f, est, ent):
 
 # ---------------------------------------------------------------- resultado (tela 1: as áreas)
 def _titulo_resultado(sup, lay, f, texto, x, y, largura):
-    """Título grande em até 2 linhas; se uma palavra não couber, usa a fonte menor. Devolve o retângulo."""
+    """Título grande em até 2 linhas no celular e 1 no PC (lá a altura é das faixas); senão, fonte menor."""
     fonte = f["tit"]
-    if any(fonte.size(linha)[0] > largura for linha in ui.quebrar(texto, fonte, largura)):
+    linhas = ui.quebrar(texto, fonte, largura)
+    if len(linhas) > (2 if lay.retrato else 1) or any(fonte.size(linha)[0] > largura for linha in linhas):
         fonte = f["perg"]
     fim = ui.desenhar_texto(sup, texto, fonte, TINTA, x, y, largura, espaco=0)
     return pygame.Rect(x, y, largura, fim - y)
 
 
 def _selo_ao_lado(lay, f, area, fx, largura):
-    selo_w = f["peq"].size(ROTULO_FAIXA[fx])[0] + lay.s(24)
+    selo_w = f["txt"].size(ROTULO_FAIXA[fx])[0] + lay.s(24)
     return f["perg"].size(area)[0] + lay.s(16) + selo_w <= largura
 
 
 def _altura_faixa(lay, f, area, fx, msg, largura, fonte):
     S = lay.s
-    extra = 0 if _selo_ao_lado(lay, f, area, fx, largura) else f["peq"].get_linesize() + S(16)
+    extra = 0 if _selo_ao_lado(lay, f, area, fx, largura) else f["txt"].get_linesize() + S(16)
     return (S(14) + f["perg"].get_linesize() + extra + len(ui.quebrar(msg, f[fonte], largura)) * f[fonte].get_linesize()
             + S(16))
 
@@ -380,7 +383,8 @@ def _resultado(sup, lay, f, est, ent):
     rects = {"titulo": r_tit}
     topo = y
     bc_h = S(72) if lay.retrato else S(56)
-    livre = lay.H - M - bc_h - S(24) - topo        # altura disponível para as faixas
+    # altura disponível para as faixas (no PC o botão fica na coluna do boneco, ao lado das faixas)
+    livre = (lay.H - M - bc_h - S(24) if lay.retrato else lay.H - M) - topo
     if lay.retrato:     # faixas de ponta a ponta, uma embaixo da outra
         larg = lay.W - 2 * M
         fonte = "txt" if sum(_altura_faixa(lay, f, a, fx, m, larg, "txt") for a, fx, m in avaliacoes) <= livre else "peq"
@@ -398,6 +402,8 @@ def _resultado(sup, lay, f, est, ent):
         def maior(fonte):
             return max(_altura_faixa(lay, f, a, fx, m, larg, fonte) for a, fx, m in avaliacoes)
         fonte = "txt" if 2 * maior("txt") <= livre else "peq"
+        global FONTE_FAIXAS_USADA
+        FONTE_FAIXAS_USADA = fonte          # o projetor é lido de longe: os testes conferem que é "txt"
         h = max(maior(fonte), livre // 2)
         for i, (area, fx, msg) in enumerate(avaliacoes):
             r = pygame.Rect((i % 2) * meia, y + (i // 2) * h, meia, h)
@@ -411,7 +417,7 @@ def _resultado(sup, lay, f, est, ent):
     else:
         coluna = pygame.Rect(M + grade_w + S(16), S(40), lay.W - M - (M + grade_w + S(16)), S(380))
         _painel_boneco(sup, lay, f, coluna, est, ent, cor_txt=TINTA)
-        bc = pygame.Rect(lay.W - M - S(240), lay.H - M - S(56), S(240), S(56))
+        bc = pygame.Rect(coluna.x, lay.H - M - S(56), coluna.w, S(56))
     ui.botao(sup, f["perg"] if lay.retrato else f["txt"], bc, "Continuar ›", ent.mouse, k=k)
     if _clicou(ent, bc):
         trocar(est, "retorno", ent.agora_ms)

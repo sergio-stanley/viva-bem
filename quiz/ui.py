@@ -43,8 +43,9 @@ class Layout:
 
 
 def escala_da_tela(dpr, largura_css, base_w) -> float:
-    """Escala que desenha 1 ponto do jogo por ponto real da tela (entre 2x e 3x, em passos de 0,25)."""
-    k = min(3.0, max(2.0, dpr * largura_css / base_w))
+    """Escala que desenha 1 ponto do jogo por ponto real da tela (entre 2x e 2,5x, em passos de 0,25).
+    Acima de 2,5x a fluidez caía muito na simulação (12 quadros/s em 2,75x contra 17 em 2,25x)."""
+    k = min(2.5, max(2.0, dpr * largura_css / base_w))
     return round(k * 4) / 4
 
 

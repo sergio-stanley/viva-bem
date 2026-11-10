@@ -488,7 +488,7 @@ def test_retorno_so_mostra_imc_no_quiz(modo, tem_imc):
 @pytest.mark.parametrize("tela", ["resultado", "feedback"])
 def test_faixas_cabem_acima_do_continuar(kw, tela):
     r = passo(_pior_caso(tela), **_KW[kw])      # faixa 0 = orientações mais longas
-    assert r["conteudo"].bottom <= r["continuar"].top
+    assert not r["conteudo"].colliderect(r["continuar"])
     assert r["continuar"].bottom <= (_KW[kw].get("lay") or LAY).H
 
 
@@ -519,3 +519,22 @@ def test_pergunta_pinta_a_tela_com_a_cor_da_area(kw):
     for i, area in ((0, "Sono"), (2, "Água"), (4, "Exercício"), (6, "Alimentação")):
         passo(Estado(tela="quiz", indice=i, ms_troca=-10_000), **_KW[kw])
         assert sup.get_at((2, sup.get_height() // 2))[:3] == COR_AREA[area]
+
+
+# ------------------------------------------------------------ correções da revisão final
+@pytest.mark.parametrize("tela,nome", [("resultado", "Wanderleia Cristina"), ("feedback", "Maria Aparecida Sous")])
+@pytest.mark.parametrize("kw", ["PC", "RET", "RET2"])
+def test_titulo_com_nome_de_duas_palavras_em_ate_2_linhas(kw, tela, nome):
+    est = _pior_caso(tela)
+    est.nome = nome
+    r = passo(est, **_KW[kw])
+    f = _KW[kw].get("fontes") or F
+    assert r["titulo"].h <= 2 * f["tit"].get_linesize()
+
+
+@pytest.mark.parametrize("kw", ["PC", "PC2"])
+def test_projetor_mostra_orientacoes_na_letra_de_texto(kw):
+    import telas
+    est = _pior_caso("resultado")         # todas as áreas em "Precisa melhorar": orientações mais longas
+    passo(est, **_KW[kw])
+    assert telas.FONTE_FAIXAS_USADA == "txt"

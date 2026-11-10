@@ -132,7 +132,7 @@ def test_pecas_desenham_com_escala():
 
 
 @pytest.mark.parametrize("dpr,css,base,esperado", [
-    (3, 390, 540, 2.25), (3.5, 412, 540, 2.75), (1, 1280, 960, 2), (2, 1920, 960, 3), (1, 1, 540, 2)])
+    (3, 390, 540, 2.25), (3.5, 412, 540, 2.5), (1, 1280, 960, 2), (2, 1920, 960, 2.5), (1, 1, 540, 2)])
 def test_escala_da_tela(dpr, css, base, esperado):
     assert escala_da_tela(dpr, css, base) == esperado
 
