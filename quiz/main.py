@@ -30,7 +30,7 @@ def escala(base_w, base_h):
 def ajustar_proporcao():
     """O pygbag calcula o tamanho de exibição antes do set_mode; pede para recalcular (evita imagem esticada)."""
     if NO_NAVEGADOR:
-        platform.document.body.style.background = "#eef2f1"   # faixas ao redor do jogo na cor do tema
+        platform.document.body.style.background = "#1f2a5a"   # faixas ao redor do jogo na cor do tema
         platform.window.window_resize()
 
 

@@ -147,3 +147,13 @@ def test_fonte_reaproveita_o_texto_ja_desenhado():
 def test_imagem_carregada_uma_vez():
     import ui
     assert ui.imagem("qrcode.png") is ui.imagem("qrcode.png")
+
+
+def test_fundo_padrao_e_o_degrade_das_cores_de_belem():
+    from ui import SONO, ALIMENTACAO
+    s = criar_fundo(Layout(960, 600))
+    perto = lambda a, b: sum(abs(a[i] - b[i]) for i in range(3)) < 90
+    assert perto(s.get_at((0, 0))[:3], SONO) and perto(s.get_at((959, 599))[:3], ALIMENTACAO)
+    for x in range(0, 960, 40):
+        for y in range(0, 600, 40):
+            assert 1.05 / (_lum(s.get_at((x, y))[:3]) + 0.05) >= 4.5, (x, y)    # texto branco legível

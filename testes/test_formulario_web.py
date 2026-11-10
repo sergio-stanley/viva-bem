@@ -54,7 +54,7 @@ def test_formulario_segura_as_teclas_antes_do_sdl():
     assert "stopPropagation" in js
 
 
-def test_formulario_usa_as_cores_novas_sem_degrade():
+def test_formulario_usa_o_degrade_das_cores_de_belem():
     html = html_formulario().lower()
-    assert "#10202a" in html and "#eef2f1" in html
-    assert "#2dd4bf" not in html and "gradient" not in html
+    assert "linear-gradient" in html and "#1f2a5a" in html and "#4b1d4f" in html
+    assert "#2dd4bf" not in html

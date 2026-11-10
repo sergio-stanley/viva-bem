@@ -105,10 +105,34 @@ def mistura(a, b, t):
     return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 
-def criar_fundo(lay: Layout, cor=CLARO) -> pygame.Surface:
+# "Rio ao entardecer": as quatro cores das áreas na diagonal (como o CSS linear-gradient(160deg)),
+# levemente lavadas de branco. Só no fundo; botões e letras continuam chapados.
+_DEGRADE = [(0.0, SONO, 0.07), (0.35, AGUA, 0.13), (0.68, EXERCICIO, 0.13), (1.0, ALIMENTACAO, 0.07)]
+
+
+def _cor_degrade(t):
+    for (t0, c0, b0), (t1, c1, b1) in zip(_DEGRADE, _DEGRADE[1:]):
+        if t <= t1:
+            f = (t - t0) / (t1 - t0)
+            return mistura(mistura(c0, BRANCO, b0), mistura(c1, BRANCO, b1), f)
+    return mistura(ALIMENTACAO, BRANCO, 0.07)
+
+
+def criar_fundo(lay: Layout, cor=None) -> pygame.Surface:
+    """Fundo chapado em `cor`, ou o degradê das cores de Belém (calculado pequeno e ampliado, uma vez)."""
     fundo = pygame.Surface((lay.W, lay.H))
-    fundo.fill(cor)
-    return fundo
+    if cor is not None:
+        fundo.fill(cor)
+        return fundo
+    pw, ph = max(lay.W // 8, 2), max(lay.H // 8, 2)
+    peq = pygame.Surface((pw, ph))
+    dx, dy = 0.342, 0.940                       # direção de 160 graus (para baixo, um pouco à direita)
+    comp = abs(pw * dx) + abs(ph * dy)
+    for y in range(ph):
+        for x in range(pw):
+            t = ((x + 0.5 - pw / 2) * dx + (y + 0.5 - ph / 2) * dy) / comp + 0.5
+            peq.set_at((x, y), _cor_degrade(max(0.0, min(1.0, t))))
+    return pygame.transform.smoothscale(peq, (lay.W, lay.H))
 
 
 def quebrar(texto, fonte, largura):
@@ -137,21 +161,33 @@ def _px(n, k):
     return max(1, int(round(n * k)))
 
 
+_pilulas = {}
+
+
 def botao(sup, fonte, rect, texto, mouse, ativo=True, cor=TINTA, cor_texto=BRANCO, k=1):
-    """Botão pílula de cor chapada. Ao passar o mouse, troca fundo e texto."""
+    """Botão pílula de cor chapada. Ao passar o mouse, troca fundo e texto.
+    `cor` com 4 valores (RGBA) = pílula translúcida (a camada é feita uma vez por tamanho e guardada)."""
     rect = pygame.Rect(rect)
     if ativo and rect.collidepoint(mouse):
-        cor, cor_texto = cor_texto, cor
+        cor, cor_texto = BRANCO, (cor[:3] if len(cor) == 3 else TINTA)
     if not ativo:       # sem camada transparente: só lava as cores na direção do fundo claro
         cor, cor_texto = mistura(cor, CLARO, 0.6), mistura(cor_texto, CLARO, 0.6)
-    pygame.draw.rect(sup, cor, rect, border_radius=rect.h // 2)
+    if len(cor) == 4:
+        chave = (rect.size, tuple(cor))
+        if chave not in _pilulas:
+            camada = pygame.Surface(rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(camada, cor, camada.get_rect(), border_radius=rect.h // 2)
+            _pilulas[chave] = camada
+        sup.blit(_pilulas[chave], rect)
+    else:
+        pygame.draw.rect(sup, cor, rect, border_radius=rect.h // 2)
     img = fonte.render(texto, True, cor_texto)
     sup.blit(img, img.get_rect(center=rect.center))
 
 
 def campo(sup, fontes, rect, rotulo, valor, unidade, focado, k=1):
     rect = pygame.Rect(rect)
-    sup.blit(fontes["peq"].render(rotulo, True, TINTA),
+    sup.blit(fontes["peq"].render(rotulo, True, BRANCO),
              (rect.x + _px(2, k), rect.y - fontes["peq"].get_linesize() - _px(4, k)))
     pygame.draw.rect(sup, BRANCO, rect, border_radius=_px(12, k))
     if focado:          # foco: faixa grossa embaixo, não uma borda fina

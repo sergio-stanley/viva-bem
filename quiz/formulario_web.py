@@ -29,7 +29,8 @@ def js_texto(texto: str) -> str:
 
 _CSS = """
 #vb-form{position:fixed;inset:0;z-index:9999;overflow:auto;box-sizing:border-box;padding:28px 22px;
-  background:#eef2f1;color:#10202a;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+  background:linear-gradient(160deg,#1f2a5aee 0%,#0b5f8add 35%,#1e6b3add 68%,#4b1d4fee 100%),#fff;
+  color:#fff;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
 #vb-form h1{font-size:34px;line-height:1.05;margin:8px 0 6px;font-weight:800;letter-spacing:-.02em}
 #vb-form p{font-size:16px;margin:0 0 22px}
 #vb-form label{display:block;font-size:16px;margin:0 0 6px}
@@ -39,10 +40,10 @@ _CSS = """
 #vb-form input:focus{border-bottom-color:#0b5f8a}
 #vb-form .linha{display:flex;gap:10px}
 #vb-form .linha>div{flex:1;min-width:0}
-#vb-erro{color:#b4232a;font-size:16px;font-weight:700;min-height:20px;margin:0 0 14px}
+#vb-erro{color:#f2b705;font-size:16px;font-weight:700;min-height:20px;margin:0 0 14px}
 #vb-form button{display:block;width:100%;font-size:19px;font-weight:800;padding:17px;border-radius:999px;
-  margin:0 0 12px;border:0;background:#fff;color:#10202a}
-#vb-form button.prim{background:#10202a;color:#fff}
+  margin:0 0 12px;border:0;background:rgba(255,255,255,.18);color:#fff}
+#vb-form button.prim{background:#fff;color:#10202a}
 """
 
 

@@ -538,3 +538,23 @@ def test_projetor_mostra_orientacoes_na_letra_de_texto(kw):
     est = _pior_caso("resultado")         # todas as áreas em "Precisa melhorar": orientações mais longas
     passo(est, **_KW[kw])
     assert telas.FONTE_FAIXAS_USADA == "txt"
+
+
+# ------------------------------------------------------------ boneco reage na hora e fundo degradê
+@pytest.mark.parametrize("opcao,sinal", [("opcao0", 1), ("opcao2", -1), ("opcao1", 0)])
+def test_boneco_reage_a_resposta(opcao, sinal):
+    import telas
+    est = Estado(tela="quiz")
+    r = passo(est)
+    T = Relogio.t + 1000
+    passo(est, clique=r[opcao].center, agora=T)
+    reacao = telas._reacao(est, T + 100)
+    assert (reacao > 0.5) if sinal > 0 else (reacao < -0.5) if sinal < 0 else reacao == 0
+    assert telas._reacao(est, T + 700) == 0
+
+
+def test_telas_sem_area_usam_o_degrade():
+    from ui import CLARO
+    for est in (Estado(), Estado(tela="retorno", idade="30", altura="170", peso="65")):
+        passo(est, fundo=criar_fundo(LAY))
+        assert SUP.get_at((LAY.W // 2, 5))[:3] != CLARO
