@@ -1,5 +1,4 @@
-"""Peças visuais do Viva Bem — identidade "Noite serena" (fundo, fontes, cards, botões, ícones)."""
-import math
+"""Peças visuais do Viva Bem — identidade "Cores de Belém": cada área tem uma cor chapada da cidade."""
 import os
 from dataclasses import dataclass
 
@@ -10,13 +9,13 @@ def _hex(c):
     return tuple(int(c[i:i + 2], 16) for i in (1, 3, 5))
 
 
-BG, BG2 = _hex("#07161F"), _hex("#0F4C5C")
-CARD, LINE = _hex("#0E2633"), _hex("#1F4A5E")
-INK, MUTE, ACC = _hex("#E8F6F4"), _hex("#8FB5BD"), _hex("#2DD4BF")
-BAD, WARN, OK = _hex("#F87171"), _hex("#FACC15"), _hex("#4ADE80")
-HOVER = (20, 58, 76)
-COR_FAIXA = (BAD, WARN, OK)
-COR_NIVEL = {"ok": OK, "atencao": WARN, "info": ACC}
+SONO, AGUA = _hex("#1F2A5A"), _hex("#0B5F8A")              # azul-noite, azul do rio
+EXERCICIO, ALIMENTACAO = _hex("#1E6B3A"), _hex("#4B1D4F")  # verde das mangueiras, roxo do açaí
+CLARO, TINTA, BRANCO = _hex("#EEF2F1"), _hex("#10202A"), _hex("#FFFFFF")
+RUIM, MEDIO, BOM = _hex("#E5484D"), _hex("#F2B705"), _hex("#2FA65A")   # semáforo da avaliação
+COR_AREA = {"Sono": SONO, "Água": AGUA, "Exercício": EXERCICIO, "Alimentação": ALIMENTACAO}
+COR_FAIXA = (RUIM, MEDIO, BOM)
+COR_NIVEL = {"ok": BOM, "atencao": MEDIO, "info": TINTA}
 
 PASTA_ASSETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
 
@@ -52,10 +51,11 @@ def _fonte(arquivo, tamanho):
 
 
 def carregar_fontes(lay: Layout) -> dict:
-    t = (46, 32, 26, 20) if lay.retrato else (40, 28, 22, 17)
+    t = (96, 52, 38, 26, 21) if lay.retrato else (72, 44, 32, 22, 17)
     t = [lay.s(x) for x in t]
-    return {"tit": _fonte("Nunito-ExtraBold.ttf", t[0]), "perg": _fonte("Nunito-ExtraBold.ttf", t[1]),
-            "txt": _fonte("Nunito-Regular.ttf", t[2]), "peq": _fonte("Nunito-Regular.ttf", t[3])}
+    forte, normal = "BricolageGrotesque-ExtraBold.ttf", "BricolageGrotesque-Regular.ttf"
+    return {"grande": _fonte(forte, t[0]), "tit": _fonte(forte, t[1]), "perg": _fonte(forte, t[2]),
+            "txt": _fonte(normal, t[3]), "peq": _fonte(normal, t[4])}
 
 
 def imagem(nome):
@@ -66,20 +66,14 @@ def imagem(nome):
     return pygame.image.load(caminho)
 
 
-def _mistura(a, b, t):
+def mistura(a, b, t):
     return tuple(int(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 
-def criar_fundo(lay: Layout) -> pygame.Surface:
-    """Degradê radial (BG2 no canto superior direito → BG). Calculado pequeno e ampliado."""
-    pw, ph = max(lay.W // 6, 2), max(lay.H // 6, 2)
-    peq = pygame.Surface((pw, ph))
-    cx, cy, raio = pw * 0.85, 0, max(pw, ph) * 0.9
-    for y in range(ph):
-        for x in range(pw):
-            t = min(1.0, math.hypot(x - cx, y - cy) / raio)
-            peq.set_at((x, y), _mistura(BG2, BG, t ** 0.8))
-    return pygame.transform.smoothscale(peq, (lay.W, lay.H))
+def criar_fundo(lay: Layout, cor=CLARO) -> pygame.Surface:
+    fundo = pygame.Surface((lay.W, lay.H))
+    fundo.fill(cor)
+    return fundo
 
 
 def quebrar(texto, fonte, largura):
@@ -108,91 +102,39 @@ def _px(n, k):
     return max(1, int(round(n * k)))
 
 
-def card(sup, rect, borda=LINE, k=1):
-    pygame.draw.rect(sup, CARD, rect, border_radius=_px(16, k))
-    pygame.draw.rect(sup, borda, rect, _px(1, k), border_radius=_px(16, k))
-
-
-def botao(sup, fonte, rect, texto, mouse, ativo=True, primario=False, k=1):
+def botao(sup, fonte, rect, texto, mouse, ativo=True, cor=TINTA, cor_texto=BRANCO, k=1):
+    """Botão pílula de cor chapada. Ao passar o mouse, troca fundo e texto."""
     rect = pygame.Rect(rect)
-    sobre = ativo and rect.collidepoint(mouse)
-    camada = pygame.Surface(rect.size, pygame.SRCALPHA)
-    local = camada.get_rect()
-    if primario:
-        pygame.draw.rect(camada, _mistura(ACC, INK, 0.25) if sobre else ACC, local, border_radius=_px(14, k))
-        cor_txt = BG
-    else:
-        pygame.draw.rect(camada, HOVER if sobre else CARD, local, border_radius=_px(14, k))
-        pygame.draw.rect(camada, ACC if sobre else LINE, local, _px(2, k), border_radius=_px(14, k))
-        cor_txt = INK
-    img = fonte.render(texto, True, cor_txt)
-    camada.blit(img, img.get_rect(center=local.center))
-    if not ativo:
-        camada.set_alpha(110)
-    sup.blit(camada, rect)
+    if ativo and rect.collidepoint(mouse):
+        cor, cor_texto = cor_texto, cor
+    if not ativo:       # sem camada transparente: só lava as cores na direção do fundo claro
+        cor, cor_texto = mistura(cor, CLARO, 0.6), mistura(cor_texto, CLARO, 0.6)
+    pygame.draw.rect(sup, cor, rect, border_radius=rect.h // 2)
+    img = fonte.render(texto, True, cor_texto)
+    sup.blit(img, img.get_rect(center=rect.center))
 
 
 def campo(sup, fontes, rect, rotulo, valor, unidade, focado, k=1):
     rect = pygame.Rect(rect)
-    sup.blit(fontes["peq"].render(rotulo, True, MUTE),
+    sup.blit(fontes["peq"].render(rotulo, True, TINTA),
              (rect.x + _px(2, k), rect.y - fontes["peq"].get_linesize() - _px(4, k)))
-    pygame.draw.rect(sup, BG, rect, border_radius=_px(12, k))
-    pygame.draw.rect(sup, ACC if focado else LINE, rect, _px(2, k), border_radius=_px(12, k))
+    pygame.draw.rect(sup, BRANCO, rect, border_radius=_px(12, k))
+    if focado:          # foco: faixa grossa embaixo, não uma borda fina
+        pygame.draw.rect(sup, AGUA, (rect.x, rect.bottom - _px(4, k), rect.w, _px(4, k)))
     cursor = "|" if focado and (pygame.time.get_ticks() // 500) % 2 == 0 else ""
-    img = fontes["txt"].render(valor + cursor, True, INK)
+    img = fontes["txt"].render(valor + cursor, True, TINTA)
     sup.blit(img, img.get_rect(midleft=(rect.x + _px(14, k), rect.centery)))
     if unidade:
-        u = fontes["peq"].render(unidade, True, MUTE)
+        u = fontes["peq"].render(unidade, True, TINTA)
         sup.blit(u, u.get_rect(midright=(rect.right - _px(12, k), rect.centery)))
 
 
-def barra(sup, rect, fracao, cor, k=1):
-    rect = pygame.Rect(rect)
-    fracao = max(0.0, min(1.0, fracao))
-    raio = rect.h // 2
-    pygame.draw.rect(sup, BG, rect, border_radius=raio)
-    if fracao <= 0:
-        return
-    cheio = pygame.Rect(rect.x, rect.y, max(rect.h, int(rect.w * fracao)), rect.h)
-    g = _px(8, k)
-    brilho = pygame.Surface((cheio.w + 2 * g, cheio.h + 2 * g), pygame.SRCALPHA)
-    for i, alfa in ((g, 30), (_px(4, k), 55)):
-        pygame.draw.rect(brilho, cor + (alfa,), (g - i, g - i, cheio.w + 2 * i, cheio.h + 2 * i),
-                         border_radius=raio + i)
-    sup.blit(brilho, (cheio.x - g, cheio.y - g))
-    pygame.draw.rect(sup, cor, cheio, border_radius=raio)
-
-
-def icone(sup, area, centro, r, cor, k=1):
-    """Ícones simples desenhados com formas: lua, gota, halter e maçã."""
-    x, y = centro
-    pygame.draw.circle(sup, HOVER, centro, r)
-    s = r * 0.55
-    if area == "Sono":
-        pygame.draw.circle(sup, cor, (x, y), int(s))
-        pygame.draw.circle(sup, HOVER, (int(x + s * 0.45), int(y - s * 0.35)), int(s * 0.85))
-    elif area == "Água":
-        pygame.draw.circle(sup, cor, (x, int(y + s * 0.3)), int(s * 0.7))
-        pygame.draw.polygon(sup, cor, [(x, int(y - s)), (int(x - s * 0.62), int(y + s * 0.15)),
-                                       (int(x + s * 0.62), int(y + s * 0.15))])
-    elif area == "Exercício":
-        pygame.draw.rect(sup, cor, (int(x - s), int(y - s * 0.12), int(2 * s), max(2, int(s * 0.24))))
-        for lado in (-1, 1):
-            pygame.draw.rect(sup, cor, (int(x + lado * s * 0.8 - s * 0.2), int(y - s * 0.55),
-                                        int(s * 0.4), int(s * 1.1)), border_radius=_px(3, k))
-    else:  # Alimentação
-        pygame.draw.ellipse(sup, cor, (int(x - s * 0.8), int(y - s * 0.5), int(s * 1.6), int(s * 1.45)))
-        pygame.draw.circle(sup, HOVER, (x, int(y - s * 0.5)), max(1, int(s * 0.18)))
-        pygame.draw.line(sup, cor, (x, int(y - s * 0.45)), (int(x + s * 0.15), int(y - s * 0.95)), _px(2, k))
-        pygame.draw.ellipse(sup, OK, (int(x + s * 0.2), int(y - s * 1.05), int(s * 0.6), int(s * 0.3)))
-
-
-def fade(sup, ms_desde_troca):
-    """Escurece a tela logo após trocar de tela e vai clareando em 200 ms."""
+def fade(sup, ms_desde_troca, cor=CLARO):
+    """Cobre a tela logo após trocar de tela e vai sumindo em 200 ms."""
     alfa = int(255 * (1 - ms_desde_troca / 200))
     if alfa <= 0:
         return
     veu = pygame.Surface(sup.get_size())
-    veu.fill(BG)
+    veu.fill(cor)
     veu.set_alpha(min(255, alfa))
     sup.blit(veu, (0, 0))

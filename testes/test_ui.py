@@ -5,8 +5,8 @@ import pytest
 
 pygame.init()
 
-from ui import (Layout, carregar_fontes, criar_fundo, card, botao, campo, barra, icone, fade,
-                COR_FAIXA, COR_NIVEL, OK, WARN, BAD, ACC)
+from ui import (Layout, carregar_fontes, criar_fundo, botao, campo, fade, COR_AREA, COR_FAIXA, COR_NIVEL,
+                RUIM, MEDIO, BOM, AGUA, TINTA, BRANCO)
 
 
 def test_layout():
@@ -18,8 +18,15 @@ def test_layout():
 @pytest.mark.parametrize("lay", [Layout(540, 960), Layout(960, 600)])
 def test_fontes_com_acentos(lay):
     f = carregar_fontes(lay)
-    assert set(f) == {"tit", "perg", "txt", "peq"}
+    assert set(f) == {"grande", "tit", "perg", "txt", "peq"}
     assert f["txt"].size("Ação, água e coração")[0] > 0
+
+
+def test_fontes_tem_os_simbolos_usados():
+    f = carregar_fontes(Layout(960, 600))
+    for nome in ("tit", "txt"):
+        for ch in "‹›·—ÁáâãçéêíóôõúÚ":
+            assert f[nome].metrics(ch)[0] is not None, (nome, ch)
 
 
 def test_fontes_tamanho_maior_no_retrato():
@@ -27,14 +34,27 @@ def test_fontes_tamanho_maior_no_retrato():
         carregar_fontes(Layout(960, 600))["txt"].get_height()
 
 
+def _lum(c):
+    f = [x / 255 for x in c]
+    f = [x / 12.92 if x <= 0.03928 else ((x + 0.055) / 1.055) ** 2.4 for x in f]
+    return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2]
+
+
+def test_branco_legivel_sobre_as_cores_das_areas():
+    for area, cor in COR_AREA.items():
+        assert 1.05 / (_lum(cor) + 0.05) >= 4.5, area
+
+
 def test_cores():
-    assert COR_FAIXA == (BAD, WARN, OK)
-    assert COR_NIVEL == {"ok": OK, "atencao": WARN, "info": ACC}
+    assert set(COR_AREA) == {"Sono", "Água", "Exercício", "Alimentação"}
+    assert COR_FAIXA == (RUIM, MEDIO, BOM)
+    assert set(COR_NIVEL) == {"ok", "atencao", "info"}
 
 
-def test_fundo_tamanho():
-    assert criar_fundo(Layout(960, 600)).get_size() == (960, 600)
-    assert criar_fundo(Layout(540, 960)).get_size() == (540, 960)
+def test_fundo_chapado():
+    s = criar_fundo(Layout(960, 600), AGUA)
+    assert s.get_size() == (960, 600)
+    assert s.get_at((0, 0))[:3] == AGUA and s.get_at((959, 599))[:3] == AGUA
 
 
 def test_desenha_sem_erro():
@@ -42,15 +62,10 @@ def test_desenha_sem_erro():
     f = carregar_fontes(lay)
     sup = pygame.Surface((960, 600))
     r = pygame.Rect(40, 40, 300, 60)
-    card(sup, r)
-    for kw in ({}, {"ativo": False}, {"primario": True}):
+    for kw in ({}, {"ativo": False}, {"cor": BRANCO, "cor_texto": AGUA}):
         botao(sup, f["txt"], r, "Continuar ›", (50, 50), **kw)
     for focado in (True, False):
         campo(sup, f, r, "Altura", "170", "cm", focado)
-    for fr in (0, 0.5, 1):
-        barra(sup, pygame.Rect(40, 200, 200, 12), fr, OK)
-    for area in ("Sono", "Água", "Exercício", "Alimentação"):
-        icone(sup, area, (100, 300), 18, ACC)
     for ms in (0, 100, 300):
         fade(sup, ms)
 
@@ -65,13 +80,32 @@ def test_fade_some_depois_de_200ms():
 
 
 def test_botao_inativo_mais_apagado():
-    lay = Layout(960, 600)
-    f = carregar_fontes(lay)
+    f = carregar_fontes(Layout(960, 600))
     a = pygame.Surface((300, 80)); b = pygame.Surface((300, 80))
+    a.fill(BRANCO); b.fill(BRANCO)
     r = pygame.Rect(0, 0, 300, 80)
-    botao(a, f["txt"], r, "X", (-1, -1), primario=True)
-    botao(b, f["txt"], r, "X", (-1, -1), primario=True, ativo=False)
-    assert sum(a.get_at((150, 10))[:3]) > sum(b.get_at((150, 10))[:3])
+    botao(a, f["txt"], r, "X", (-1, -1))
+    botao(b, f["txt"], r, "X", (-1, -1), ativo=False)
+    assert sum(a.get_at((150, 10))[:3]) < sum(b.get_at((150, 10))[:3])     # inativo: cor mais lavada
+
+
+def test_botao_ativo_nao_cria_camada(monkeypatch):
+    import ui
+    real = ui.pygame.Surface
+    f = carregar_fontes(Layout(960, 600))
+    sup = real((300, 80))
+    criadas = []
+    monkeypatch.setattr(ui.pygame, "Surface", lambda *a, **k: criadas.append(a) or real(*a, **k))
+    ui.botao(sup, f["txt"], (0, 0, 300, 80), "Ok", (-1, -1))
+    assert criadas == []
+
+
+def test_botao_e_pilula_sem_borda():
+    f = carregar_fontes(Layout(960, 600))
+    sup = pygame.Surface((300, 80)); sup.fill(BRANCO)
+    botao(sup, f["txt"], (0, 0, 300, 80), "", (-1, -1), cor=TINTA)
+    assert sup.get_at((1, 1))[:3] == BRANCO          # canto arredondado
+    assert sup.get_at((150, 2))[:3] == TINTA          # sem borda de outra cor
 
 
 # ------------------------------------------------------------ escala (nitidez em telas de alta densidade)
@@ -93,8 +127,5 @@ def test_pecas_desenham_com_escala():
     f = carregar_fontes(lay)
     sup = pygame.Surface((1920, 1200))
     r = pygame.Rect(80, 80, 600, 120)
-    card(sup, r, k=2)
     botao(sup, f["txt"], r, "Continuar ›", (90, 90), k=2)
     campo(sup, f, r, "Altura", "170", "cm", True, k=2)
-    barra(sup, pygame.Rect(80, 400, 400, 24), 0.5, OK, k=2)
-    icone(sup, "Exercício", (200, 600), 36, ACC, k=2)
