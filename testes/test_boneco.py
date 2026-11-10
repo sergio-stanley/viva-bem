@@ -39,3 +39,10 @@ def test_cor_do_tronco_muda_com_a_energia():
 
 def test_respira_com_o_tempo():
     assert pygame.image.tobytes(_foto(0.5, 0), "RGB") != pygame.image.tobytes(_foto(0.5, 900), "RGB")
+
+
+def test_sem_brilho_semitransparente():
+    sup = pygame.Surface((200, 300), pygame.SRCALPHA)
+    desenhar_boneco(sup, (100, 150), 240, 1.0, 0)
+    alfas = {sup.get_at((x, y))[3] for x in range(200) for y in range(300)}
+    assert alfas <= {0, 255}
