@@ -29,20 +29,20 @@ def js_texto(texto: str) -> str:
 
 _CSS = """
 #vb-form{position:fixed;inset:0;z-index:9999;overflow:auto;box-sizing:border-box;padding:28px 22px;
-  background:radial-gradient(circle at 85% 0%,#0f4c5c 0%,#07161f 65%);color:#e8f6f4;
-  font-family:Nunito,system-ui,-apple-system,"Segoe UI",sans-serif}
-#vb-form h1{color:#2dd4bf;font-size:30px;margin:8px 0 4px;font-weight:800}
-#vb-form p{color:#8fb5bd;font-size:15px;margin:0 0 22px}
-#vb-form label{display:block;color:#8fb5bd;font-size:15px;margin:0 0 6px}
+  background:#eef2f1;color:#10202a;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+#vb-form h1{font-size:34px;line-height:1.05;margin:8px 0 6px;font-weight:800;letter-spacing:-.02em}
+#vb-form p{font-size:16px;margin:0 0 22px}
+#vb-form label{display:block;font-size:16px;margin:0 0 6px}
 #vb-form input{display:block;width:100%;box-sizing:border-box;font-size:18px;padding:13px 14px;
-  margin:0 0 16px;background:#07161f;color:#e8f6f4;border:2px solid #1f4a5e;border-radius:12px;outline:none}
-#vb-form input:focus{border-color:#2dd4bf}
+  margin:0 0 16px;background:#fff;color:#10202a;border:0;border-bottom:4px solid #fff;border-radius:12px;
+  outline:none}
+#vb-form input:focus{border-bottom-color:#0b5f8a}
 #vb-form .linha{display:flex;gap:10px}
 #vb-form .linha>div{flex:1;min-width:0}
-#vb-erro{color:#facc15;font-size:15px;min-height:20px;margin:0 0 14px}
-#vb-form button{display:block;width:100%;font-size:19px;font-weight:800;padding:16px;border-radius:14px;
-  margin:0 0 12px;border:2px solid #1f4a5e;background:#0e2633;color:#e8f6f4}
-#vb-form button.prim{background:#2dd4bf;border-color:#2dd4bf;color:#07161f}
+#vb-erro{color:#b4232a;font-size:16px;font-weight:700;min-height:20px;margin:0 0 14px}
+#vb-form button{display:block;width:100%;font-size:19px;font-weight:800;padding:17px;border-radius:999px;
+  margin:0 0 12px;border:0;background:#fff;color:#10202a}
+#vb-form button.prim{background:#10202a;color:#fff}
 """
 
 

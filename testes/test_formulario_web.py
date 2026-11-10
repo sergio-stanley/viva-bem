@@ -52,3 +52,9 @@ def test_formulario_segura_as_teclas_antes_do_sdl():
     for evento in ("keydown", "keypress", "keyup"):
         assert f"'{evento}'" in js
     assert "stopPropagation" in js
+
+
+def test_formulario_usa_as_cores_novas_sem_degrade():
+    html = html_formulario().lower()
+    assert "#10202a" in html and "#eef2f1" in html
+    assert "#2dd4bf" not in html and "gradient" not in html
