@@ -50,6 +50,8 @@ def test_fluxo_quiz_completo():
     for _ in range(8):
         tocar(est, "opcao0")
     assert est.tela == "resultado" and len(est.respostas) == 8
+    tocar(est, "continuar")
+    assert est.tela == "retorno"
     tocar(est, "voltar")
     assert est.tela == "inicio"
 
@@ -118,8 +120,9 @@ def test_resultado_valores_extremos(idade, pts):
         n = 8 if tela == "resultado" else 4
         areas = ["Sono", "Água", "Exercício", "Alimentação"]
         est.respostas = [(areas[i % 4], pts) for i in range(n)]
-        rects = passo(est)
-        assert "voltar" in rects
+        assert "continuar" in passo(est)
+        est.tela = "retorno"
+        assert "voltar" in passo(est)
 
 
 def test_resultado_sem_nome():
@@ -129,8 +132,8 @@ def test_resultado_sem_nome():
 
 
 def test_todas_as_telas_desenham_sem_erro():
-    for tela in ("inicio", "dados", "quiz", "acomp"):
-        passo(Estado(tela=tela))
+    for tela in ("inicio", "dados", "quiz", "acomp", "retorno"):
+        passo(Estado(tela=tela, idade="30", altura="170", peso="65"))
 
 
 def test_enter_no_ultimo_campo_continua_se_valido():
@@ -238,8 +241,9 @@ def test_layout_retrato_sem_erro():
     for tela, n in (("resultado", 8), ("feedback", 4)):
         est = Estado(tela=tela, modo="quiz" if n == 8 else "acomp", nome="W" * 20,
                      idade="65", altura="100", peso="300", respostas=[(A[i % 4], 0) for i in range(n)])
-        rects = passo(est, **RET)
-        assert rects["voltar"].bottom <= 1080
+        assert passo(est, **RET)["continuar"].bottom <= 1080
+        est.tela = "retorno"
+        assert passo(est, **RET)["voltar"].bottom <= 1080
 
 
 def test_fluxo_quiz_completo_retrato():
@@ -263,7 +267,9 @@ def _pior_caso(tela):
 @pytest.mark.parametrize("retrato", [False, True])
 def test_resultado_pior_caso_nao_sobrepoe_rodape(tela, retrato):
     kw = RET if retrato else {}
-    rects = passo(_pior_caso(tela), **kw)
+    est = _pior_caso(tela)
+    est.tela = "retorno"
+    rects = passo(est, **kw)
     altura = (kw.get("lay") or LAY).H
     assert rects["conteudo"].bottom <= rects["rodape"].top
     assert rects["rodape"].bottom <= altura
@@ -293,6 +299,7 @@ def test_energia_do_boneco_cai_com_respostas_ruins_e_volta_ao_neutro_no_inicio()
     for _ in range(30):
         passo(est)
     assert est.tela == "feedback" and est.energia_vista < 0.1
+    tocar(est, "continuar")
     tocar(est, "voltar")
     assert est.energia_vista == pytest.approx(0.5)
 
@@ -393,7 +400,9 @@ def _estados_para_comparar():
     return [Estado(), Estado(tela="dados", idade="23", altura="170", peso="65"),
             Estado(tela="quiz", indice=3, respostas=resp[:3]), Estado(tela="acomp", indice=1),
             Estado(tela="resultado", nome="Ana", idade="23", altura="165", peso="60", respostas=resp),
-            Estado(tela="feedback", modo="acomp", idade="23", altura="165", peso="60", respostas=resp[:4])]
+            Estado(tela="feedback", modo="acomp", idade="23", altura="165", peso="60", respostas=resp[:4]),
+            Estado(tela="retorno", nome="Ana", idade="23", altura="165", peso="60", respostas=resp),
+            Estado(tela="retorno", modo="acomp", idade="23", altura="165", peso="60", respostas=resp[:4])]
 
 
 @pytest.mark.parametrize("retrato", [False, True])
@@ -415,7 +424,9 @@ def test_escala_2x_desenha_a_mesma_tela_no_dobro_do_tamanho(retrato):
 @pytest.mark.parametrize("retrato", [False, True])
 def test_escala_2x_pior_caso_nao_sobrepoe_rodape(tela, retrato):
     kw = RET2 if retrato else PC2
-    rects = passo(_pior_caso(tela), **kw)
+    est = _pior_caso(tela)
+    est.tela = "retorno"
+    rects = passo(est, **kw)
     assert rects["conteudo"].bottom <= rects["rodape"].top
     assert rects["rodape"].bottom <= kw["lay"].H
 
@@ -443,3 +454,68 @@ def test_escala_2x_qr_fica_maior_e_nitido(tmp_path, monkeypatch):
     assert r2.w == 2 * r1.w
     cores = {tuple(PC2["sup"].get_at((x, r2.centery)))[:3] for x in range(r2.x, r2.right)}
     assert cores <= {(0, 0, 0), (255, 255, 255)}      # ampliado sem suavizar: só preto e branco
+
+
+# ------------------------------------------------------------ visual Cores de Belém: resultado em duas telas
+_KW = {"PC": {}, "RET": RET, "PC2": PC2, "RET2": RET2}
+
+
+def test_resultado_continua_para_retorno_e_volta_ao_inicio():
+    est = _pior_caso("resultado")
+    tocar(est, "continuar")
+    assert est.tela == "retorno" and len(est.respostas) == 8
+    tocar(est, "voltar")
+    assert est.tela == "inicio"
+
+
+def test_toque_duplo_em_continuar_nao_pula_o_retorno():
+    est = _pior_caso("resultado")
+    rects = passo(est)
+    T = Relogio.t + 1000
+    passo(est, clique=rects["continuar"].center, agora=T)
+    passo(est, clique=rects["continuar"].center, agora=T + 150)
+    assert est.tela == "retorno"
+
+
+@pytest.mark.parametrize("modo,tem_imc", [("quiz", True), ("acomp", False)])
+def test_retorno_so_mostra_imc_no_quiz(modo, tem_imc):
+    est = _pior_caso("resultado" if modo == "quiz" else "feedback")
+    est.tela = "retorno"
+    assert ("imc" in passo(est)) is tem_imc
+
+
+@pytest.mark.parametrize("kw", ["PC", "RET", "PC2", "RET2"])
+@pytest.mark.parametrize("tela", ["resultado", "feedback"])
+def test_faixas_cabem_acima_do_continuar(kw, tela):
+    r = passo(_pior_caso(tela), **_KW[kw])      # faixa 0 = orientações mais longas
+    assert r["conteudo"].bottom <= r["continuar"].top
+    assert r["continuar"].bottom <= (_KW[kw].get("lay") or LAY).H
+
+
+@pytest.mark.parametrize("kw", ["PC", "RET"])
+def test_nome_de_20_letras_quebra_em_ate_2_linhas(kw):
+    est = _pior_caso("resultado")
+    est.nome = "W" * 20
+    r = passo(est, **_KW[kw])
+    f = _KW[kw].get("fontes") or F
+    assert r["titulo"].h <= 2 * f["tit"].get_linesize()
+    assert r["titulo"].bottom <= r["conteudo"].top
+
+
+@pytest.mark.parametrize("kw", ["PC", "RET"])
+@pytest.mark.parametrize("lista", ["quiz", "acomp"])
+def test_pergunta_mais_longa_cabe_acima_das_respostas(kw, lista):
+    from conteudo import PERGUNTAS, ACOMPANHAMENTO
+    perguntas = PERGUNTAS if lista == "quiz" else ACOMPANHAMENTO
+    i = max(range(len(perguntas)), key=lambda j: len(perguntas[j][1]))
+    r = passo(Estado(tela=lista, indice=i), **_KW[kw])
+    assert r["texto"].bottom <= r["opcao0"].top
+
+
+@pytest.mark.parametrize("kw", ["PC", "RET"])
+def test_pergunta_pinta_a_tela_com_a_cor_da_area(kw):
+    from ui import COR_AREA
+    sup = (_KW[kw].get("sup") or SUP)
+    for i, area in ((0, "Sono"), (2, "Água"), (4, "Exercício"), (6, "Alimentação")):
+        passo(Estado(tela="quiz", indice=i, ms_troca=-10_000), **_KW[kw])
+        assert sup.get_at((2, sup.get_height() // 2))[:3] == COR_AREA[area]

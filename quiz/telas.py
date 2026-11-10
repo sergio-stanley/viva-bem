@@ -1,4 +1,8 @@
-"""Estado do quiz e desenho/entrada de cada tela do Viva Bem (PC deitado e celular em pé)."""
+"""Estado do quiz e desenho/entrada de cada tela do Viva Bem (PC deitado e celular em pé).
+
+Visual "Cores de Belém": cada área pinta a tela com a sua cor (ui.COR_AREA); as telas sem área usam o
+fundo claro. Nada de degradê, brilho, sombra ou borda fina.
+"""
 import datetime
 from dataclasses import dataclass, field
 
@@ -9,7 +13,7 @@ from regras import (avaliar_area, pontos_por_area, calcular_imc, formatar_decima
                     titulo, data_retorno, aceita_clique, energia, aproximar, LIMITE_NOME)
 import ui
 from boneco import desenhar_boneco
-from ui import ACC, INK, MUTE, WARN, BG, COR_FAIXA, COR_NIVEL
+from ui import BRANCO, TINTA, CLARO, AGUA, COR_AREA, COR_FAIXA, COR_NIVEL
 
 
 @dataclass
@@ -22,7 +26,7 @@ class Entrada:
 
 @dataclass
 class Estado:
-    tela: str = "inicio"    # inicio | dados | quiz | acomp | resultado | feedback
+    tela: str = "inicio"    # inicio | dados | quiz | acomp | resultado | feedback | retorno
     modo: str = "quiz"      # quiz | acomp
     indice: int = 0
     respostas: list = field(default_factory=list)
@@ -55,7 +59,8 @@ def desenhar(sup, lay, fontes, fundo, est: Estado, ent: Entrada, form=None) -> d
     sup.blit(fundo, (0, 0))
     dt = max(0, min(100, ent.agora_ms - est.ms_ultimo))
     est.ms_ultimo = ent.agora_ms
-    alvo = energia(est.respostas) if est.tela in ("quiz", "acomp", "resultado", "feedback") else 0.5
+    com_respostas = ("quiz", "acomp", "resultado", "feedback", "retorno")
+    alvo = energia(est.respostas) if est.tela in com_respostas else 0.5
     est.energia_vista = aproximar(est.energia_vista, alvo, dt)
     clique = ent.clique if aceita_clique(ent.agora_ms - est.ms_troca) else None
     ent = Entrada(ent.mouse, clique, ent.teclas, ent.agora_ms)
@@ -63,9 +68,9 @@ def desenhar(sup, lay, fontes, fundo, est: Estado, ent: Entrada, form=None) -> d
         rects = _dados_formulario(sup, lay, fontes, est, ent, form)
     else:
         tela = {"inicio": _inicio, "dados": _dados, "quiz": _perguntas, "acomp": _perguntas,
-                "resultado": _resultado, "feedback": _resultado}[est.tela]
+                "resultado": _resultado, "feedback": _resultado, "retorno": _retorno}[est.tela]
         rects = tela(sup, lay, fontes, est, ent)
-    ui.fade(sup, ent.agora_ms - est.ms_troca)
+    ui.fade(sup, ent.agora_ms - est.ms_troca, sup.get_at((0, 0))[:3])    # entra na cor da própria tela
     return rects
 
 
@@ -75,22 +80,46 @@ def _clicou(ent, rect):
 
 def _rotulo_energia(e):
     if e < 0.35:
-        return "Sem energia", ui.BAD
+        return "Sem energia"
     if e < 0.7:
-        return "Energia ok", WARN
-    return "Cheio de energia!", ui.OK
+        return "Energia ok"
+    return "Cheio de energia!"
 
 
-def _painel_boneco(sup, lay, f, painel, est, ent, legenda=True):
-    """Boneco de energia centralizado num painel (só no PC)."""
+def _painel_boneco(sup, lay, f, painel, est, ent, legenda=True, cor_txt=BRANCO):
+    """Boneco de energia centralizado numa região (só no PC)."""
     S = lay.s
     altura = min(S(300), painel.h - S(90))
     centro = (painel.centerx, painel.y + S(30) + altura // 2)
     desenhar_boneco(sup, centro, altura, est.energia_vista, ent.agora_ms)
     if legenda:
-        texto, cor = _rotulo_energia(est.energia_vista)
-        img = f["txt"].render(texto, True, cor)
+        img = f["txt"].render(_rotulo_energia(est.energia_vista), True, cor_txt)
         sup.blit(img, img.get_rect(midtop=(painel.centerx, centro[1] + altura // 2 + S(12))))
+
+
+def _selo(sup, f, texto, cor, pos, lay, ancora="midright"):
+    """Selo sólido com a avaliação (semáforo). Devolve o retângulo."""
+    img = f["peq"].render(texto, True, TINTA)
+    r = img.get_rect().inflate(lay.s(24), lay.s(10))
+    setattr(r, ancora, pos)
+    pygame.draw.rect(sup, cor, r, border_radius=r.h // 2)
+    sup.blit(img, img.get_rect(center=r.center))
+    return r
+
+
+def _faixas_de_cor(sup, regiao, vertical):
+    """As quatro cores das áreas lado a lado, como uma bandeira. Devolve as faixas."""
+    faixas = []
+    for i, area in enumerate(AREAS):
+        if vertical:
+            x0, x1 = regiao.x + regiao.w * i // 4, regiao.x + regiao.w * (i + 1) // 4
+            r = pygame.Rect(x0, regiao.y, x1 - x0, regiao.h)
+        else:
+            y0, y1 = regiao.y + regiao.h * i // 4, regiao.y + regiao.h * (i + 1) // 4
+            r = pygame.Rect(regiao.x, y0, regiao.w, y1 - y0)
+        sup.fill(COR_AREA[area], r)
+        faixas.append((area, r))
+    return faixas
 
 
 # ---------------------------------------------------------------- início
@@ -99,55 +128,50 @@ def _inicio(sup, lay, f, est, ent):
     texto = ("Responda 8 perguntas sobre sono, água, exercício e alimentação e receba "
              "orientações para melhorar sua rotina. Refaça a cada 2 dias para acompanhar seu progresso.")
     aviso = AVISO_SAUDE + " Nenhum dado é guardado."
+    extras = {}
     if lay.retrato:
         largura = lay.W - 2 * M
-        sup.blit(f["tit"].render("Viva Bem", True, ACC), (M, S(80)))
-        y = ui.desenhar_texto(sup, texto, f["txt"], MUTE, M, S(150), largura, espaco=S(4))
-        passo = largura // 4
-        for i, area in enumerate(AREAS):
-            cx, cy = M + passo // 2 + i * passo, y + S(70)
-            ui.icone(sup, area, (cx, cy), S(32), ACC, k=k)
-            img = f["peq"].render(area, True, INK)
-            sup.blit(img, img.get_rect(midtop=(cx, cy + S(40))))
+        for area, r in _faixas_de_cor(sup, pygame.Rect(0, 0, lay.W, S(360)), vertical=False):
+            img = f["txt"].render(area, True, BRANCO)
+            sup.blit(img, img.get_rect(midleft=(M, r.centery)))
+        y = S(392)
+        sup.blit(f["grande"].render("Viva Bem", True, TINTA), (M, y))
+        y = ui.desenhar_texto(sup, texto, f["txt"], TINTA, M, y + f["grande"].get_linesize(), largura,
+                              espaco=S(4))
         r1 = pygame.Rect(M, lay.H - S(330), largura, S(84))
         r2 = pygame.Rect(M, lay.H - S(230), largura, S(84))
         fonte_bt = f["txt"]
-        ui.desenhar_texto(sup, aviso, f["peq"], MUTE, M, lay.H - M - S(56), largura, espaco=0)
+        ui.desenhar_texto(sup, aviso, f["peq"], TINTA, M, lay.H - M - S(56), largura, espaco=0)
     else:
-        col_w = lay.W - 2 * M - S(270)
-        sup.blit(f["tit"].render("Viva Bem", True, ACC), (M, S(48)))
-        ui.desenhar_texto(sup, texto, f["txt"], MUTE, M, S(112), col_w, espaco=S(4))
-        r1 = pygame.Rect(M, S(270), col_w, S(72))
-        r2 = pygame.Rect(M, S(360), col_w, S(72))
-        fonte_bt = f["perg"]
-        ui.desenhar_texto(sup, aviso, f["peq"], MUTE, M, lay.H - M - S(22), col_w, espaco=S(4))
-        painel = pygame.Rect(lay.W - M - S(240), S(48), S(240), lay.H - S(48) - M)
-        ui.card(sup, painel, k=k)
+        regiao = pygame.Rect(int(lay.W * 0.58), 0, lay.W - int(lay.W * 0.58), lay.H)
+        _faixas_de_cor(sup, regiao, vertical=True)
+        col_w = regiao.x - 2 * M
+        sup.blit(f["grande"].render("Viva Bem", True, TINTA), (M, S(48)))
+        ui.desenhar_texto(sup, texto, f["txt"], TINTA, M, S(48) + f["grande"].get_linesize() + S(8), col_w,
+                          espaco=S(4))
+        r1 = pygame.Rect(M, S(330), col_w, S(64))
+        r2 = pygame.Rect(M, S(410), col_w, S(64))
+        fonte_bt = f["txt"]
+        ui.desenhar_texto(sup, aviso, f["peq"], TINTA, M, lay.H - M - S(44), col_w, espaco=S(2))
         qr = ui.imagem("qrcode.png")
+        y = S(48)
         if qr is not None:      # para o público escanear durante a apresentação
             # ampliado/reduzido sem suavizar (transform.scale): o QR continua com bordas nítidas
-            lado = min(painel.w - S(40), S(qr.get_width()))
+            lado = min(regiao.w - S(80), S(qr.get_width()))
             if lado != qr.get_width():
                 qr = pygame.transform.scale(qr, (lado, lado))
-            r_qr = qr.get_rect(midtop=(painel.centerx, painel.y + S(20)))
+            r_qr = qr.get_rect(midtop=(regiao.centerx, y))
             sup.blit(qr, r_qr)
-            y = r_qr.bottom + S(10)
-            for linha in ui.quebrar("Aponte a câmera do celular", f["peq"], painel.w - S(30)):
-                img = f["peq"].render(linha, True, INK)
-                sup.blit(img, img.get_rect(midtop=(painel.centerx, y)))
+            y = r_qr.bottom + S(12)
+            for linha in ("Aponte a câmera do celular", SITE):
+                img = f["peq"].render(linha, True, BRANCO)
+                sup.blit(img, img.get_rect(midtop=(regiao.centerx, y)))
                 y += f["peq"].get_linesize()
-            site = f["peq"].render(SITE, True, ACC)
-            sup.blit(site, site.get_rect(midtop=(painel.centerx, y + S(2))))
-            _painel_boneco(sup, lay, f, pygame.Rect(painel.x, y + S(20), painel.w, painel.bottom - y - S(20)),
-                           est, ent, legenda=False)
-            extras = {"qr": r_qr}
-        else:
-            _painel_boneco(sup, lay, f, pygame.Rect(painel.x, painel.y, painel.w, S(330)), est, ent, legenda=False)
-            for i, area in enumerate(AREAS):
-                ui.icone(sup, area, (painel.x + S(36) + i * S(56), painel.bottom - S(60)), S(20), ACC, k=k)
-            extras = {}
-    ui.botao(sup, fonte_bt, r1, "Primeira vez: começar o quiz", ent.mouse, primario=True, k=k)
-    ui.botao(sup, fonte_bt, r2, "Já fiz antes: acompanhamento", ent.mouse, k=k)
+            extras["qr"] = r_qr
+        _painel_boneco(sup, lay, f, pygame.Rect(regiao.x, y + S(8), regiao.w, lay.H - y - S(8)),
+                       est, ent, legenda=False)
+    ui.botao(sup, fonte_bt, r1, "Primeira vez: começar o quiz", ent.mouse, k=k)
+    ui.botao(sup, fonte_bt, r2, "Já fiz antes: acompanhamento", ent.mouse, cor=BRANCO, cor_texto=TINTA, k=k)
     if _clicou(ent, r1):
         est.modo = "quiz"
         trocar(est, "dados", ent.agora_ms)
@@ -155,8 +179,7 @@ def _inicio(sup, lay, f, est, ent):
         est.modo = "acomp"
         trocar(est, "dados", ent.agora_ms)
     rects = {"primeira_vez": r1, "ja_fiz": r2}
-    if not lay.retrato:
-        rects.update(extras)
+    rects.update(extras)
     return rects
 
 
@@ -164,12 +187,13 @@ def _inicio(sup, lay, f, est, ent):
 def _dados(sup, lay, f, est, ent):
     M, S, k = lay.margem, lay.s, lay.k
     col_w = lay.W - 2 * M if lay.retrato else int((lay.W - 2 * M) * 0.6)
-    sup.blit(f["tit"].render("Antes de começar", True, ACC), (M, S(40)))
-    ui.desenhar_texto(sup, "Seus dados não são guardados — servem só para o resultado.",
-                      f["peq"], MUTE, M, S(96), col_w, espaco=S(4))
-    caixas = [pygame.Rect(M, S(170), col_w, S(52))]
+    sup.blit(f["tit"].render("Antes de começar", True, TINTA), (M, S(40)))
+    y_sub = ui.desenhar_texto(sup, "Seus dados não são guardados — servem só para o resultado.",
+                              f["peq"], TINTA, M, S(40) + f["tit"].get_linesize(), col_w, espaco=S(4))
+    y_cx = max(S(170), y_sub + f["peq"].get_linesize() + S(12))
+    caixas = [pygame.Rect(M, y_cx, col_w, S(52))]
     w3 = (col_w - S(32)) // 3
-    caixas += [pygame.Rect(M + i * (w3 + S(16)), S(270), w3, S(52)) for i in range(3)]
+    caixas += [pygame.Rect(M + i * (w3 + S(16)), y_cx + S(100), w3, S(52)) for i in range(3)]
     rotulos = ["Nome (opcional)", "Idade", "Altura", "Peso"]
     unidades = ["", "anos", "cm", "kg"]
     valores = [est.nome, est.idade, est.altura, est.peso]
@@ -178,26 +202,29 @@ def _dados(sup, lay, f, est, ent):
     erro = validar_dados(est.nome, est.idade, est.altura, est.peso)
     valido = erro is None
     if erro and (est.idade or est.altura or est.peso):
-        ui.desenhar_texto(sup, erro, f["peq"], WARN, M, S(334), col_w, espaco=S(4))
+        ui.desenhar_texto(sup, erro, f["peq"], ui.mistura(ui.RUIM, TINTA, 0.35), M, caixas[1].bottom + S(12), col_w,
+                          espaco=S(4))
     if lay.retrato:
         bc = pygame.Rect(M, lay.H - M - S(72), col_w, S(72))
-        lado = pygame.Rect(M, S(400), col_w, S(200))
+        lado = pygame.Rect(0, caixas[1].bottom + S(80), lay.W, S(200))
     else:
         bc = pygame.Rect(M, lay.H - M - S(64), S(220), S(64))
-        lado = pygame.Rect(M + col_w + S(32), S(170), lay.W - 2 * M - col_w - S(32), S(224))
-    ui.botao(sup, f["perg"], bc, "Continuar ›", ent.mouse, ativo=valido, primario=True, k=k)
+        lado = pygame.Rect(M + col_w + S(32), 0, lay.W - (M + col_w + S(32)), lay.H)
+    ui.botao(sup, f["perg"], bc, "Continuar ›", ent.mouse, ativo=valido, k=k)
     if lay.retrato:
         bvolta = pygame.Rect(M, bc.y - S(84), col_w, S(72))
     else:
         bvolta = pygame.Rect(bc.right + S(16), bc.y, S(160), bc.h)
-    ui.botao(sup, f["txt"], bvolta, "‹ Voltar", ent.mouse, k=k)
-    ui.card(sup, lado, k=k)
-    sup.blit(f["txt"].render("Por que pedimos isso?", True, ACC), (lado.x + S(18), lado.y + S(16)))
+    ui.botao(sup, f["txt"], bvolta, "‹ Voltar", ent.mouse, cor=BRANCO, cor_texto=TINTA, k=k)
+    sup.fill(AGUA, lado)        # bloco de cor chapada, encostado na borda
+    tx = lado.x + (M if lado.x == 0 else S(28))
+    ty = lado.y + (S(24) if lay.retrato else S(170))
+    largura_txt = lado.right - tx - (M if lado.x == 0 else S(28))
+    y = ui.desenhar_texto(sup, "Por que pedimos isso?", f["perg"], BRANCO, tx, ty, largura_txt, espaco=0)
     y = ui.desenhar_texto(sup, "Idade, altura e peso servem para calcular seu IMC. "
-                          "O nome só personaliza o título.", f["peq"], INK, lado.x + S(18), lado.y + S(56),
-                          lado.w - S(36), espaco=S(4))
-    ui.desenhar_texto(sup, "Tab ou Enter: próximo campo · Esc: voltar", f["peq"], MUTE,
-                      lado.x + S(18), y + S(14), lado.w - S(36), espaco=0)
+                          "O nome só personaliza o título.", f["peq"], BRANCO, tx, y + S(4), largura_txt, espaco=S(4))
+    ui.desenhar_texto(sup, "Tab ou Enter: próximo campo · Esc: voltar", f["peq"], BRANCO,
+                      tx, y + S(14), largura_txt, espaco=0)
 
     for ev in ent.teclas:
         if ev.key == pygame.K_ESCAPE:
@@ -221,7 +248,7 @@ def _dados(sup, lay, f, est, ent):
 
 def _dados_formulario(sup, lay, f, est, ent, form):
     """Celular: os dados são digitados num formulário HTML (abre o teclado do próprio celular)."""
-    sup.blit(f["tit"].render("Antes de começar", True, ACC), (lay.margem, lay.s(60)))
+    sup.blit(f["tit"].render("Antes de começar", True, TINTA), (lay.margem, lay.s(60)))
     if not est.form_aberto:
         form.abrir()
         est.form_aberto = True
@@ -270,22 +297,25 @@ def _perguntas(sup, lay, f, est, ent):
     lista = PERGUNTAS if est.tela == "quiz" else ACOMPANHAMENTO
     area, texto = lista[est.indice][0], lista[est.indice][1]
     opcoes = lista[est.indice][2] if est.tela == "quiz" else OPCOES_ACOMP
+    cor = COR_AREA[area]
+    sup.fill(cor)
     col_w = lay.W - 2 * M if lay.retrato else int((lay.W - 2 * M) * 0.62)
 
-    pygame.draw.rect(sup, BG, (M, S(40), col_w, S(10)), border_radius=S(5))
-    pygame.draw.rect(sup, ACC, (M, S(40), max(S(10), int(col_w * est.indice / len(lista))), S(10)),
-                     border_radius=S(5))
-    ui.icone(sup, area, (M + S(18), S(88)), S(18), ACC, k=k)
-    sup.blit(f["peq"].render(f"{area.upper()}   ·   Pergunta {est.indice + 1} de {len(lista)}", True, MUTE),
-             (M + S(46), S(78)))
-    ui.desenhar_texto(sup, texto, f["perg"], INK, M, S(140 if lay.retrato else 130), col_w, espaco=S(4))
+    y = S(56) if lay.retrato else S(32)
+    fonte_area = f["grande"] if f["grande"].size(area)[0] <= col_w else f["tit"]
+    sup.blit(fonte_area.render(area, True, BRANCO), (M, y))
+    y += fonte_area.get_linesize()
+    sup.blit(f["txt"].render(f"Pergunta {est.indice + 1} de {len(lista)}", True, BRANCO), (M, y))
+    y0_texto = y + f["txt"].get_linesize() + S(40 if lay.retrato else 20)
+    y_fim = ui.desenhar_texto(sup, texto, f["perg"], BRANCO, M, y0_texto, col_w, espaco=S(4))
 
-    altura_op, gap = (S(92), S(18)) if lay.retrato else (S(72), S(16))
+    altura_op, gap = (S(92), S(18)) if lay.retrato else (S(64), S(12))
     y0 = lay.H - M - (3 * altura_op + 2 * gap)
-    rects = {}
+    rects = {"texto": pygame.Rect(M, y0_texto, col_w, y_fim - y0_texto)}
+    clara = ui.mistura(cor, BRANCO, 0.16)
     for i, (t, p) in enumerate(opcoes):
         r = pygame.Rect(M, y0 + i * (altura_op + gap), col_w, altura_op)
-        ui.botao(sup, f["txt"], r, t, ent.mouse, k=k)
+        ui.botao(sup, f["txt"], r, t, ent.mouse, cor=clara, cor_texto=BRANCO, k=k)
         rects[f"opcao{i}"] = r
         if _clicou(ent, r):
             est.respostas.append((area, p))
@@ -296,100 +326,146 @@ def _perguntas(sup, lay, f, est, ent):
                 est.ms_troca = ent.agora_ms
             break
     if not lay.retrato:
-        painel = pygame.Rect(M + col_w + S(32), S(40), lay.W - 2 * M - col_w - S(32), lay.H - S(40) - M)
-        ui.card(sup, painel, k=k)
-        _painel_boneco(sup, lay, f, painel.inflate(0, -S(40)), est, ent)
+        x = M + col_w + S(32)
+        _painel_boneco(sup, lay, f, pygame.Rect(x, S(40), lay.W - M - x, lay.H - S(80)), est, ent)
     return rects
 
 
-# ---------------------------------------------------------------- resultado / feedback
+# ---------------------------------------------------------------- resultado (tela 1: as áreas)
 def _titulo_resultado(sup, lay, f, texto, x, y, largura):
-    """Título grande; se não couber (nome longo / tela estreita), quebra em fonte menor. Devolve o y final."""
-    img = f["tit"].render(texto, True, ACC)
-    if img.get_width() <= largura:
-        sup.blit(img, (x, y))
-        return y + img.get_height()
-    return ui.desenhar_texto(sup, texto, f["perg"], ACC, x, y + lay.s(6), largura, espaco=0)
+    """Título grande em até 2 linhas; se uma palavra não couber, usa a fonte menor. Devolve o retângulo."""
+    fonte = f["tit"]
+    if any(fonte.size(linha)[0] > largura for linha in ui.quebrar(texto, fonte, largura)):
+        fonte = f["perg"]
+    fim = ui.desenhar_texto(sup, texto, fonte, TINTA, x, y, largura, espaco=0)
+    return pygame.Rect(x, y, largura, fim - y)
 
 
-def _card_area(sup, lay, f, r, area, fx, msg, progresso):
-    S, k = lay.s, lay.k
-    ui.card(sup, r, k=k)
-    cor = COR_FAIXA[fx]
-    ui.icone(sup, area, (r.x + S(28), r.y + S(26)), S(18), cor, k=k)
-    sup.blit(f["txt"].render(area, True, INK), (r.x + S(54), r.y + S(26) - f["txt"].get_height() // 2))
-    rot = f["peq"].render(ROTULO_FAIXA[fx], True, cor)
-    sup.blit(rot, rot.get_rect(midright=(r.right - S(16), r.y + S(54))))
-    ui.barra(sup, (r.x + S(16), r.y + S(49), r.w - S(44) - rot.get_width(), S(10)), (fx + 1) / 3 * progresso,
-             cor, k=k)
-    ui.desenhar_texto(sup, msg, f["peq"], MUTE, r.x + S(16), r.y + S(66), r.w - S(32), espaco=0)
+def _selo_ao_lado(lay, f, area, fx, largura):
+    selo_w = f["peq"].size(ROTULO_FAIXA[fx])[0] + lay.s(24)
+    return f["perg"].size(area)[0] + lay.s(16) + selo_w <= largura
 
 
-def _altura_card(lay, f, msg, largura):
+def _altura_faixa(lay, f, area, fx, msg, largura, fonte):
     S = lay.s
-    return S(66) + len(ui.quebrar(msg, f["peq"], largura - S(32))) * f["peq"].get_linesize() + S(10)
+    extra = 0 if _selo_ao_lado(lay, f, area, fx, largura) else f["peq"].get_linesize() + S(16)
+    return (S(14) + f["perg"].get_linesize() + extra + len(ui.quebrar(msg, f[fonte], largura)) * f[fonte].get_linesize()
+            + S(16))
+
+
+def _faixa_area(sup, lay, f, r, area, fx, msg, pad_x, fonte):
+    """Uma área do resultado: bloco na cor da área, nome, selo do semáforo e a orientação."""
+    S = lay.s
+    sup.fill(COR_AREA[area], r)
+    largura = r.w - 2 * pad_x
+    x, y = r.x + pad_x, r.y + S(14)
+    img = f["perg"].render(area, True, BRANCO)
+    sup.blit(img, (x, y))
+    y += f["perg"].get_linesize()
+    if _selo_ao_lado(lay, f, area, fx, largura):
+        _selo(sup, f, ROTULO_FAIXA[fx], COR_FAIXA[fx], (r.right - pad_x, r.y + S(14) + img.get_height() // 2), lay)
+    else:
+        sel = _selo(sup, f, ROTULO_FAIXA[fx], COR_FAIXA[fx], (x, y), lay, ancora="topleft")
+        y = sel.bottom + S(8)
+    ui.desenhar_texto(sup, msg, f[fonte], BRANCO, x, y, largura, espaco=0)
 
 
 def _resultado(sup, lay, f, est, ent):
     M, S, k = lay.margem, lay.s, lay.k
     modo = "quiz" if est.tela == "resultado" else "acomp"
-    progresso = min(1.0, (ent.agora_ms - est.ms_troca) / 600)
     largura = lay.W - 2 * M
     grade_w = largura if lay.retrato else largura - S(210)
-    y = _titulo_resultado(sup, lay, f, titulo(est.nome, modo), M, S(18), grade_w - S(90))
-    idade = f["peq"].render(f"{est.idade} anos", True, MUTE)
-    sup.blit(idade, idade.get_rect(bottomright=(M + grade_w, y - S(6))))
-    y += S(8)
+    r_tit = _titulo_resultado(sup, lay, f, titulo(est.nome, modo), M, S(24), grade_w)
+    y = r_tit.bottom + S(16)
 
     pontos = pontos_por_area(est.respostas)
-    lh = f["peq"].get_linesize()
     avaliacoes = [(area,) + avaliar_area(area, pontos[area], modo) for area in AREAS]
-    if lay.retrato:
-        for area, fx, msg in avaliacoes:
-            ch = _altura_card(lay, f, msg, grade_w)
-            _card_area(sup, lay, f, pygame.Rect(M, y, grade_w, ch), area, fx, msg, progresso)
-            y += ch + S(10)
-    else:
-        cw = (grade_w - S(12)) // 2
-        ch = max(_altura_card(lay, f, m, cw) for _, _, m in avaliacoes)
+    rects = {"titulo": r_tit}
+    topo = y
+    bc_h = S(72) if lay.retrato else S(56)
+    livre = lay.H - M - bc_h - S(24) - topo        # altura disponível para as faixas
+    if lay.retrato:     # faixas de ponta a ponta, uma embaixo da outra
+        larg = lay.W - 2 * M
+        fonte = "txt" if sum(_altura_faixa(lay, f, a, fx, m, larg, "txt") for a, fx, m in avaliacoes) <= livre else "peq"
+        alturas = [_altura_faixa(lay, f, a, fx, m, larg, fonte) for a, fx, m in avaliacoes]
+        sobra = max(0, livre - sum(alturas)) // 4
+        for (area, fx, msg), h in zip(avaliacoes, alturas):
+            r = pygame.Rect(0, y, lay.W, h + sobra)
+            _faixa_area(sup, lay, f, r, area, fx, msg, M, fonte)
+            rects[f"faixa_{area}"] = r
+            y = r.bottom
+    else:               # 2x2 encostadas, como a bandeira da tela inicial
+        meia = (M + grade_w) // 2
+        larg = meia - M - S(20)
+
+        def maior(fonte):
+            return max(_altura_faixa(lay, f, a, fx, m, larg, fonte) for a, fx, m in avaliacoes)
+        fonte = "txt" if 2 * maior("txt") <= livre else "peq"
+        h = max(maior(fonte), livre // 2)
         for i, (area, fx, msg) in enumerate(avaliacoes):
-            r = pygame.Rect(M + (i % 2) * (cw + S(12)), y + (i // 2) * (ch + S(10)), cw, ch)
-            _card_area(sup, lay, f, r, area, fx, msg, progresso)
-        y += 2 * (ch + S(10))
+            r = pygame.Rect((i % 2) * meia, y + (i // 2) * h, meia, h)
+            _faixa_area(sup, lay, f, r, area, fx, msg, S(20) if i % 2 else M, fonte)
+            rects[f"faixa_{area}"] = r
+        y += 2 * h
+    rects["conteudo"] = pygame.Rect(0, topo, lay.W if lay.retrato else M + grade_w, y - topo)
 
-    if modo == "quiz":
-        imc = calcular_imc(int(est.peso), int(est.altura), int(est.idade))
-        cor = COR_NIVEL[imc.nivel]
-        obs = imc.observacao + " O IMC é só uma referência."
-        linhas = ui.quebrar(obs, f["peq"], grade_w - S(32))
-        r = pygame.Rect(M, y, grade_w, S(42) + len(linhas) * lh)
-        ui.card(sup, r, borda=cor, k=k)
-        linha = f"IMC {formatar_decimal(imc.valor)}" + (f"  ·  {imc.classificacao}" if imc.classificacao else "")
-        sup.blit(f["txt"].render(linha, True, cor), (r.x + S(16), r.y + S(6)))
-        ui.desenhar_texto(sup, obs, f["peq"], INK, r.x + S(16), r.y + S(36), grade_w - S(32), espaco=0)
-        y = r.bottom
-    conteudo = pygame.Rect(M, 0, grade_w, y)
-    if not lay.retrato:
-        coluna = pygame.Rect(M + grade_w + S(16), S(70), lay.W - M - (M + grade_w + S(16)), S(380))
-        _painel_boneco(sup, lay, f, coluna, est, ent)
-
-    # rodapé fixo: lembrete de retorno + aviso de saúde + botão
-    retorno = f"Volte dia {data_retorno(est.hoje)} para o acompanhamento."
-    lh_txt = f["txt"].get_linesize()
     if lay.retrato:
-        bv = pygame.Rect(M, lay.H - M - S(64), largura, S(64))
-        n_ret = len(ui.quebrar(retorno, f["txt"], largura))
-        n_av = len(ui.quebrar(AVISO_SAUDE, f["peq"], largura))
-        topo = bv.y - S(12) - n_ret * lh_txt - n_av * lh
-        y2 = ui.desenhar_texto(sup, retorno, f["txt"], INK, M, topo, largura, espaco=0)
-        ui.desenhar_texto(sup, AVISO_SAUDE, f["peq"], MUTE, M, y2, largura, espaco=0)
+        bc = pygame.Rect(M, lay.H - M - S(72), largura, S(72))
     else:
-        bv = pygame.Rect(lay.W - M - S(240), lay.H - M - S(56), S(240), S(56))
-        topo = bv.y - S(4)
-        sup.blit(f["txt"].render(retorno, True, INK), (M, topo))
-        ui.desenhar_texto(sup, AVISO_SAUDE, f["peq"], MUTE, M, topo + lh_txt, bv.x - M - S(24), espaco=0)
-    rodape = pygame.Rect(M, topo, lay.W - 2 * M, lay.H - M - topo)
+        coluna = pygame.Rect(M + grade_w + S(16), S(40), lay.W - M - (M + grade_w + S(16)), S(380))
+        _painel_boneco(sup, lay, f, coluna, est, ent, cor_txt=TINTA)
+        bc = pygame.Rect(lay.W - M - S(240), lay.H - M - S(56), S(240), S(56))
+    ui.botao(sup, f["perg"] if lay.retrato else f["txt"], bc, "Continuar ›", ent.mouse, k=k)
+    if _clicou(ent, bc):
+        trocar(est, "retorno", ent.agora_ms)
+    rects["continuar"] = bc
+    return rects
+
+
+# ---------------------------------------------------------------- retorno (tela 2: IMC e quando voltar)
+def _retorno(sup, lay, f, est, ent):
+    M, S, k = lay.margem, lay.s, lay.k
+    largura = lay.W - 2 * M
+    col_w = largura if lay.retrato else largura - S(250)
+    y = S(56) if lay.retrato else S(40)
+    rects = {}
+    if est.modo == "quiz":
+        imc = calcular_imc(int(est.peso), int(est.altura), int(est.idade))
+        sup.blit(f["tit"].render("Seu IMC", True, TINTA), (M, y))
+        y += f["tit"].get_linesize()
+        valor = f["grande"].render(formatar_decimal(imc.valor), True, TINTA)
+        sup.blit(valor, (M, y))
+        if imc.classificacao:
+            _selo(sup, f, imc.classificacao, COR_NIVEL[imc.nivel],
+                  (M + valor.get_width() + S(20), y + valor.get_height() // 2), lay, ancora="midleft")
+        y += f["grande"].get_linesize()
+        y = ui.desenhar_texto(sup, imc.observacao + " O IMC é só uma referência.", f["txt"], TINTA, M, y,
+                              col_w, espaco=S(4))
+        rects["imc"] = pygame.Rect(M, S(40), col_w, y - S(40))
+    else:
+        sup.blit(f["tit"].render("Até a próxima!", True, TINTA), (M, y))
+        y += f["tit"].get_linesize()
+        y = ui.desenhar_texto(sup, "Você revisou os quatro hábitos hoje. Siga as orientações e volte em 2 dias "
+                              "para ver como foi.", f["txt"], TINTA, M, y, col_w, espaco=S(4))
+    rects["conteudo"] = pygame.Rect(M, 0, col_w, y)
+
+    retorno = f"Volte dia {data_retorno(est.hoje)} para o acompanhamento."
+    bv_h = S(72) if lay.retrato else S(56)
+    bv = pygame.Rect(M, lay.H - M - bv_h, largura if lay.retrato else S(240), bv_h)
+    n_ret = len(ui.quebrar(retorno, f["perg"], col_w))
+    n_av = len(ui.quebrar(AVISO_SAUDE, f["peq"], col_w))
+    topo = bv.y - S(24) - n_ret * f["perg"].get_linesize() - n_av * f["peq"].get_linesize()
+    y2 = ui.desenhar_texto(sup, retorno, f["perg"], TINTA, M, topo, col_w, espaco=0)
+    ui.desenhar_texto(sup, AVISO_SAUDE, f["peq"], TINTA, M, y2, col_w, espaco=0)
+    if lay.retrato and topo - y > S(160):     # a bandeira preenche o meio da tela
+        _faixas_de_cor(sup, pygame.Rect(0, y + S(40), lay.W, topo - y - S(80)), vertical=False)
+    if not lay.retrato:     # a bandeira volta na coluna da direita, com o boneco
+        regiao = pygame.Rect(M + col_w + S(40), 0, lay.W - (M + col_w + S(40)), lay.H)
+        _faixas_de_cor(sup, regiao, vertical=False)
+        _painel_boneco(sup, lay, f, regiao.inflate(0, -S(60)), est, ent)
     ui.botao(sup, f["txt"], bv, "Voltar ao início", ent.mouse, k=k)
     if _clicou(ent, bv):
         trocar(est, "inicio", ent.agora_ms)
-    return {"voltar": bv, "conteudo": conteudo, "rodape": rodape}
+    rects["voltar"] = bv
+    rects["rodape"] = pygame.Rect(M, topo, lay.W - 2 * M, lay.H - M - topo)
+    return rects
