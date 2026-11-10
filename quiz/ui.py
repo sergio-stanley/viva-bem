@@ -42,12 +42,39 @@ class Layout:
         return self.s(28 if self.retrato else 40)
 
 
+def escala_da_tela(dpr, largura_css, base_w) -> float:
+    """Escala que desenha 1 ponto do jogo por ponto real da tela (entre 2x e 3x, em passos de 0,25)."""
+    k = min(3.0, max(2.0, dpr * largura_css / base_w))
+    return round(k * 4) / 4
+
+
+class _Fonte(pygame.font.Font):
+    """Fonte que guarda o texto já desenhado: a tela é redesenhada 60x por segundo com os mesmos textos,
+    e desenhar letra grande a cada quadro deixava o jogo lento no navegador."""
+    def __init__(self, *args):
+        super().__init__(*args)
+        self._prontos = {}
+
+    def render(self, texto, aa, cor, fundo=None):
+        chave = (texto, aa, tuple(cor), fundo and tuple(fundo))
+        if chave not in self._prontos:
+            if len(self._prontos) > 400:    # textos digitados mudam a cada tecla: não deixa crescer sem fim
+                self._prontos.clear()
+            self._prontos[chave] = super().render(texto, aa, cor, fundo)
+        return self._prontos[chave]
+
+    def size(self, texto):
+        if texto not in self._prontos:
+            self._prontos[texto] = super().size(texto)
+        return self._prontos[texto]
+
+
 def _fonte(arquivo, tamanho):
     caminho = os.path.join(PASTA_ASSETS, arquivo)
     try:
-        return pygame.font.Font(caminho, tamanho)
+        return _Fonte(caminho, tamanho)
     except (FileNotFoundError, OSError):
-        return pygame.font.Font(None, int(tamanho * 1.25))
+        return _Fonte(None, int(tamanho * 1.25))
 
 
 def carregar_fontes(lay: Layout) -> dict:
@@ -58,12 +85,19 @@ def carregar_fontes(lay: Layout) -> dict:
             "txt": _fonte(normal, t[3]), "peq": _fonte(normal, t[4])}
 
 
-def imagem(nome):
-    """Carrega uma imagem de assets/ (None se o arquivo não existir)."""
+_imagens = {}
+
+
+def imagem(nome, lado=None):
+    """Imagem de assets/ (None se o arquivo não existir), carregada uma vez. `lado`: redimensiona para
+    um quadrado sem suavizar (o QR code continua nítido)."""
     caminho = os.path.join(PASTA_ASSETS, nome)
-    if not os.path.exists(caminho):
-        return None
-    return pygame.image.load(caminho)
+    if (caminho, lado) not in _imagens:
+        if not os.path.exists(caminho):
+            return None
+        img = pygame.image.load(caminho)
+        _imagens[(caminho, lado)] = pygame.transform.scale(img, (lado, lado)) if lado else img
+    return _imagens[(caminho, lado)]
 
 
 def mistura(a, b, t):

@@ -5,7 +5,7 @@ import pytest
 
 pygame.init()
 
-from ui import (Layout, carregar_fontes, criar_fundo, botao, campo, fade, COR_AREA, COR_FAIXA, COR_NIVEL,
+from ui import (Layout, carregar_fontes, criar_fundo, botao, campo, fade, escala_da_tela, COR_AREA, COR_FAIXA, COR_NIVEL,
                 RUIM, MEDIO, BOM, AGUA, TINTA, BRANCO)
 
 
@@ -129,3 +129,21 @@ def test_pecas_desenham_com_escala():
     r = pygame.Rect(80, 80, 600, 120)
     botao(sup, f["txt"], r, "Continuar ›", (90, 90), k=2)
     campo(sup, f, r, "Altura", "170", "cm", True, k=2)
+
+
+@pytest.mark.parametrize("dpr,css,base,esperado", [
+    (3, 390, 540, 2.25), (3.5, 412, 540, 2.75), (1, 1280, 960, 2), (2, 1920, 960, 3), (1, 1, 540, 2)])
+def test_escala_da_tela(dpr, css, base, esperado):
+    assert escala_da_tela(dpr, css, base) == esperado
+
+
+def test_fonte_reaproveita_o_texto_ja_desenhado():
+    f = carregar_fontes(Layout(960, 600))["txt"]
+    a = f.render("Viva Bem", True, (1, 2, 3))
+    assert f.render("Viva Bem", True, (1, 2, 3)) is a
+    assert f.render("Viva Bem", True, (9, 9, 9)) is not a
+
+
+def test_imagem_carregada_uma_vez():
+    import ui
+    assert ui.imagem("qrcode.png") is ui.imagem("qrcode.png")

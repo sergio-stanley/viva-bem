@@ -156,10 +156,7 @@ def _inicio(sup, lay, f, est, ent):
         qr = ui.imagem("qrcode.png")
         y = S(48)
         if qr is not None:      # para o público escanear durante a apresentação
-            # ampliado/reduzido sem suavizar (transform.scale): o QR continua com bordas nítidas
-            lado = min(regiao.w - S(80), S(qr.get_width()))
-            if lado != qr.get_width():
-                qr = pygame.transform.scale(qr, (lado, lado))
+            qr = ui.imagem("qrcode.png", min(regiao.w - S(80), S(qr.get_width())))
             r_qr = qr.get_rect(midtop=(regiao.centerx, y))
             sup.blit(qr, r_qr)
             y = r_qr.bottom + S(12)

@@ -6,7 +6,7 @@ import pygame
 
 import telas
 from formulario_web import FormularioWeb, eh_toque
-from ui import Layout, carregar_fontes, criar_fundo
+from ui import Layout, carregar_fontes, criar_fundo, escala_da_tela
 
 NO_NAVEGADOR = sys.platform == "emscripten"
 if NO_NAVEGADOR:
@@ -14,15 +14,23 @@ if NO_NAVEGADOR:
 
 TAMANHO_PC = (960, 600)          # deitado: computador / projetor
 TAMANHO_CELULAR = (540, 1080)    # em pé: celular (sempre, mesmo se girar)
-# Desenha no dobro do tamanho: o navegador não precisa esticar a imagem, então o texto fica nítido
-# no celular (telas de alta densidade) e em monitores Full HD.
+# Fora do navegador desenha no dobro; no navegador, no tamanho real da tela (ver ui.escala_da_tela),
+# para o navegador não precisar esticar a imagem e o texto ficar nítido.
 ESCALA = 2
+
+
+def escala(base_w, base_h):
+    if not NO_NAVEGADOR:
+        return ESCALA
+    w = platform.window
+    largura_css = min(w.innerWidth, w.innerHeight * base_w / base_h)    # o jogo cabe inteiro na janela
+    return escala_da_tela(w.devicePixelRatio, largura_css, base_w)
 
 
 def ajustar_proporcao():
     """O pygbag calcula o tamanho de exibição antes do set_mode; pede para recalcular (evita imagem esticada)."""
     if NO_NAVEGADOR:
-        platform.document.body.style.background = "#07161f"   # faixas ao redor do jogo na cor do tema
+        platform.document.body.style.background = "#eef2f1"   # faixas ao redor do jogo na cor do tema
         platform.window.window_resize()
 
 
@@ -30,7 +38,8 @@ async def main():
     pygame.init()
     celular = eh_toque()
     base_w, base_h = TAMANHO_CELULAR if celular else TAMANHO_PC
-    lay = Layout(base_w * ESCALA, base_h * ESCALA, ESCALA)
+    k = escala(base_w, base_h)
+    lay = Layout(round(base_w * k), round(base_h * k), k)
     form = FormularioWeb() if celular else None
     sup = pygame.display.set_mode((lay.W, lay.H))
     pygame.display.set_caption("Viva Bem")
