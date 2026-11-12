@@ -7,8 +7,8 @@ param(
 
 Set-Location -Path $PSScriptRoot
 
-Write-Host "1/3  Gerando o build do quiz (py -m pygbag --build quiz)..." -ForegroundColor Cyan
-py -m pygbag --build quiz
+Write-Host "1/3  Gerando o build do quiz (pygbag com o modelo ferramentas/viva-bem.tmpl)..." -ForegroundColor Cyan
+py -m pygbag --build --ume_block 0 --title "Viva Bem" --template ferramentas/viva-bem.tmpl quiz
 if ($LASTEXITCODE -ne 0) {
     Write-Host "ERRO: o build falhou. Nada foi enviado. Leia a mensagem acima." -ForegroundColor Red
     exit 1
