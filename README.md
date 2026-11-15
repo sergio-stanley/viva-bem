@@ -26,7 +26,7 @@ quiz/                  código do jogo (só isto vai empacotado pelo pygbag)
   boneco.py            boneco de energia (só no PC)
   formulario_web.py    formulário HTML no celular (abre o teclado do aparelho)
   assets/              fonte Nunito (licença OFL) e qrcode.png
-  build/web/           gerado pelo pygbag — é o que a Vercel publica
+  build/web/           GERADO pelo pygbag (não é código-fonte, não editar) — é o que a Vercel publica
 testes/                testes automáticos (pytest)
 ferramentas/gerar_qr.py  gera o QR code do site
 publicar.ps1           build + commit + push

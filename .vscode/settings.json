@@ -1,0 +1,5 @@
+{
+  "problems.exclude": { "**/build/**": true },
+  "html.validate.scripts": false,
+  "cSpell.ignorePaths": ["**/build/**"]
+}
